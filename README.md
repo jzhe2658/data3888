@@ -12,4 +12,4 @@ This project uses gene expression and clinical data from the GSE88884 study to e
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/YourGithubUsername/GSE88884_SLE_RiskPrediction.git
+git clone https://github.com/YourGithub...
