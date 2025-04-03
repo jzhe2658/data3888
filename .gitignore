@@ -12,3 +12,6 @@
 # Output folders
 results/
 data/raw/
+
+data/*.txt
+data/*.rds
