@@ -23,8 +23,8 @@ We follow a **branch-per-task workflow** to collaborate efficiently:
 |------------------------|-----------------------------------------------------------|
 | `main`                 | Stable and merged version of all work                     |
 | `data-cleaning`        | Data preprocessing (completed)                             |
-| `eda-analysis`        | Exploratory Data Analysis ()                 |
-| `differential-analysis`| Differential Expression Analysis ()         |
+| `eda-analysis`        | Exploratory Data Analysis (completed)                 |
+| `differential-analysis`| Differential Expression Analysis (completed)         |
 | `model-training`      | Predictive Model Development ()             |
 | `shiny-app`           | Shiny App Deployment (later)                    |
 
