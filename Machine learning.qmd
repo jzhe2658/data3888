@@ -345,6 +345,24 @@ print("KNN classification results:")
 print(confusionMatrix(knn_pred, testY)$overall['Accuracy'])
 ```
 
+```{r}
+# Logistic regression model
+logit_model <- glm(RiskGroup ~ ., data = trainData, family = "binomial")
+
+# Predict probabilities
+logit_prob <- predict(logit_model, testX, type = "response")
+logit_pred <- ifelse(logit_prob > 0.5, "HighRisk_SLEDAI", "LowRisk_SLEDAI")
+logit_pred <- factor(logit_pred, levels = levels(testY))
+
+# Evaluate results
+confusionMatrix(logit_pred, testY)
+
+# Output accuracy
+print("Logistic regression classification results:")
+print(confusionMatrix(logit_pred, testY)$overall['Accuracy'])
+```
+
+
 
 ```{r}
 # Extract expression data for common_genes
@@ -376,22 +394,7 @@ confusionMatrix(rf_pred, testData$RiskGroup)
 ```
 
 
-```{r}
-# Logistic regression model
-logit_model <- glm(RiskGroup ~ ., data = trainData, family = "binomial")
 
-# Predict probabilities
-logit_prob <- predict(logit_model, testX, type = "response")
-logit_pred <- ifelse(logit_prob > 0.5, "HighRisk_SLEDAI", "LowRisk_SLEDAI")
-logit_pred <- factor(logit_pred, levels = levels(testY))
-
-# Evaluate results
-confusionMatrix(logit_pred, testY)
-
-# Output accuracy
-print("Logistic regression classification results:")
-print(confusionMatrix(logit_pred, testY)$overall['Accuracy'])
-```
 
 
 ```{r}
