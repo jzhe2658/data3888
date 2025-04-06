@@ -298,93 +298,195 @@ p_ma_interactive
 
 ```
 
-```{r}
+```{R}
+# Load necessary packages
+library(caret)  # Used for machine learning modeling and cross validation
+library(randomForest) # Random Forest
+library(e1071)  # Support Vector Machine (SVM)
+library(class)  # KNN
 
-library(class)
-library(dplyr)
-library(readr)
+# Extract expression data for common_genes
+expr_common <- expr_df_matched[common_genes, ]
 
-#Read data
-expr_df_matched <- readRDS("expr_df_matched.rds")
-pheno_clean <- readRDS("pheno_clean.rds")
-common_genes_data <- read.csv("Common_Significant_Genes.csv")
-common_genes <- common_genes_data$Gene
-
-#Screen for common significant genes and transpose them
-expr_common <- expr_df_matched[rownames(expr_df_matched) %in% common_genes, ]
+# Transpose data so that samples are rows and genes are columns
 expr_common_t <- t(expr_common)
 
-#Check dimensions
-dim(expr_common_t)  
+# Combine expression data with risk group (using SLEDAI as an example)
+data_for_model <- as.data.frame(expr_common_t)
+data_for_model$RiskGroup <- pheno_clean$risk_group_SLEDAI
 
-#Check for missing values in the expression data
-na_count <- sum(is.na(expr_common_t))
-cat("Number of NA values in expr_common_t:", na_count, "\n")
+# Convert RiskGroup to a factor
+data_for_model$RiskGroup <- as.factor(data_for_model$RiskGroup)
 
-#Define target variables and fill in NA
-threshold_sledai <- 10
-median_sledai <- median(pheno_clean$sledai_at_baseline, na.rm = TRUE)
-pheno_clean$sledai_at_baseline[is.na(pheno_clean$sledai_at_baseline)] <- median_sledai
-pheno_clean$risk_group_SLEDAI <- ifelse(pheno_clean$sledai_at_baseline >= threshold_sledai, 
-                                        "HighRisk_SLEDAI", 
-                                        "LowRisk_SLEDAI")
-target <- as.factor(pheno_clean$risk_group_SLEDAI)
+# Split into training and testing sets (70% training, 30% testing)
+set.seed(123)  # Set random seed for reproducibility
+trainIndex <- createDataPartition(data_for_model$RiskGroup, p = 0.7, list = FALSE)
+trainData <- data_for_model[trainIndex, ]
+testData <- data_for_model[-trainIndex, ]
 
-#Check the NA in the target variable
-na_target <- sum(is.na(target))
-cat("Number of NA values in target:", na_target, "\n")
+# Separate features and labels
+trainX <- trainData[, -ncol(trainData)]  # Features
+trainY <- trainData$RiskGroup           # Labels
+testX <- testData[, -ncol(testData)]
+testY <- testData$RiskGroup
+```
 
-#If there is still NA, print the problem sample
-if (na_target > 0) {
-  na_samples <- which(is.na(target))
-  cat("Samples with NA in target:", na_samples, "\n")
-  stop("Target still contains NA values after imputation.")
-}
 
-#Align samples
-common_samples <- intersect(rownames(expr_common_t), rownames(pheno_clean))
-expr_common_t <- expr_common_t[common_samples, ]
-pheno_clean <- pheno_clean[common_samples, ]
-target <- as.factor(pheno_clean$risk_group_SLEDAI)
 
-#Check the aligned dimensions
-cat("Aligned expr_common_t rows:", nrow(expr_common_t), "\n")
-cat("Aligned target length:", length(target), "\n")
+```{r}
+# KNN model
+knn_pred <- knn(train = trainX, test = testX, cl = trainY, k = 11)  # k=11 can be adjusted
 
-#Check the distribution of target variables
-table(target)
+# Evaluate results
+confusionMatrix(knn_pred, testY)
 
-#Split training and testing sets
-set.seed(135)
-train_idx <- sample(1:nrow(expr_common_t), 0.8 * nrow(expr_common_t))
-train_data <- expr_common_t[train_idx, ]
-test_data <- expr_common_t[-train_idx, ]
-train_labels <- target[train_idx]
-test_labels <- target[-train_idx]
+# Output accuracy
+print("KNN classification results:")
+print(confusionMatrix(knn_pred, testY)$overall['Accuracy'])
+```
 
-#Check if the dimensions of the data and labels match
-cat("Train data rows:", nrow(train_data), "Train labels length:", length(train_labels), "\n")
-cat("Test data rows:", nrow(test_data), "Test labels length:", length(test_labels), "\n")
 
-#Check the NA in the label
-cat("NA in train_labels:", sum(is.na(train_labels)), "\n")
-cat("NA in test_labels:", sum(is.na(test_labels)), "\n")
+```{r}
+# Extract expression data for common_genes
+expr_common <- expr_df_matched[common_genes, ]
 
-#If there is still NA, stop and prompt
-if (sum(is.na(train_labels)) > 0 || sum(is.na(test_labels)) > 0) {
-  stop("Train or test labels still contain NA values.")
-}
+# Transpose data
+expr_common_t <- t(expr_common)
 
-#KNN modeling
-knn_pred <- knn(train = train_data, 
-                test = test_data, 
-                cl = train_labels, 
-                k = 11)
+# Clean column names, replacing special characters with underscores
+colnames(expr_common_t) <- make.names(colnames(expr_common_t), unique = TRUE)
 
-#Output prediction results
-confusion_matrix <- table(Predicted = knn_pred, Actual = test_labels)
-print(confusion_matrix)
+# Combine data
+data_for_model <- as.data.frame(expr_common_t)
+data_for_model$RiskGroup <- pheno_clean$risk_group_SLEDAI
+data_for_model$RiskGroup <- as.factor(data_for_model$RiskGroup)
 
-accuracy <- sum(diag(confusion_matrix)) / sum(confusion_matrix)
-cat("Accuracy:", accuracy, "\n")
+# Split into training and testing sets
+set.seed(244)
+trainIndex <- createDataPartition(data_for_model$RiskGroup, p = 0.7, list = FALSE)
+trainData <- data_for_model[trainIndex, ]
+testData <- data_for_model[-trainIndex, ]
+
+# Run Random Forest model
+rf_model <- randomForest(RiskGroup ~ ., data = trainData, ntree = 100, importance = TRUE)
+
+# Predict and evaluate
+rf_pred <- predict(rf_model, testData)
+confusionMatrix(rf_pred, testData$RiskGroup)
+```
+
+
+```{r}
+# Logistic regression model
+logit_model <- glm(RiskGroup ~ ., data = trainData, family = "binomial")
+
+# Predict probabilities
+logit_prob <- predict(logit_model, testX, type = "response")
+logit_pred <- ifelse(logit_prob > 0.5, "HighRisk_SLEDAI", "LowRisk_SLEDAI")
+logit_pred <- factor(logit_pred, levels = levels(testY))
+
+# Evaluate results
+confusionMatrix(logit_pred, testY)
+
+# Output accuracy
+print("Logistic regression classification results:")
+print(confusionMatrix(logit_pred, testY)$overall['Accuracy'])
+```
+
+
+```{r}
+library(e1071)  # SVM package
+library(caret)  # Used for data splitting
+
+# Extract expression data for common_genes
+expr_common <- expr_df_matched[common_genes, ]
+expr_common_t <- t(expr_common)
+
+# Clean column names
+colnames(expr_common_t) <- make.names(colnames(expr_common_t), unique = TRUE)
+
+# Build data frame
+data_for_model <- as.data.frame(expr_common_t)
+data_for_model$RiskGroup <- pheno_clean$risk_group_SLEDAI
+data_for_model$RiskGroup <- as.factor(data_for_model$RiskGroup)
+
+# Split into training and testing sets
+set.seed(741)
+trainIndex <- createDataPartition(data_for_model$RiskGroup, p = 0.7, list = FALSE)
+trainData <- data_for_model[trainIndex, ]
+testData <- data_for_model[-trainIndex, ]
+
+# Separate features and labels
+trainX <- trainData[, -ncol(trainData)]
+trainY <- trainData$RiskGroup
+testX <- testData[, -ncol(testData)]
+testY <- testData$RiskGroup
+
+# SVM model (linear kernel)
+svm_model <- svm(RiskGroup ~ ., data = trainData, kernel = "linear", cost = 1)
+
+# Predict
+svm_pred <- predict(svm_model, testX)
+
+# Evaluate
+confusionMatrix(svm_pred, testY)
+```
+
+
+```{r}
+# Logistic regression model
+logit_model <- glm(RiskGroup ~ ., data = trainData, family = "binomial")
+
+# Predict probabilities
+logit_prob <- predict(logit_model, testX, type = "response")
+logit_pred <- ifelse(logit_prob > 0.5, "HighRisk_SLEDAI", "LowRisk_SLEDAI")
+logit_pred <- factor(logit_pred, levels = levels(testY))
+
+# Evaluate results
+confusionMatrix(logit_pred, testY)
+
+# Output accuracy
+print("Logistic regression classification results:")
+print(confusionMatrix(logit_pred, testY)$overall['Accuracy'])
+
+```
+
+```{r}
+library(caret)
+library(doParallel)
+
+# Parallel setup
+cl <- makeCluster(detectCores() - 1)
+registerDoParallel(cl)
+
+# Set up 5-fold cross-validation
+train_control <- trainControl(method = "cv", number = 5)
+
+# Data standardization
+preProc <- preProcess(data_for_model[, -ncol(data_for_model)], method = c("center", "scale"))
+data_scaled <- predict(preProc, data_for_model)
+
+# KNN
+knn_cv <- train(RiskGroup ~ ., data = data_scaled, method = "knn", 
+                trControl = train_control, tuneGrid = data.frame(k = c(1, 3, 5, 7)))
+print(knn_cv)
+
+# Random Forest
+rf_cv <- train(RiskGroup ~ ., data = data_scaled, method = "rf", 
+               trControl = train_control, tuneGrid = data.frame(mtry = c(1, 3, 5)), 
+               ntree = 50)
+print(rf_cv)
+
+# SVM
+svm_cv <- train(RiskGroup ~ ., data = data_scaled, method = "svmLinear", 
+                trControl = train_control, tuneGrid = data.frame(C = c(0.1, 1, 10)))
+print(svm_cv)
+
+# Logistic regression
+logit_cv <- train(RiskGroup ~ ., data = data_scaled, method = "glm", 
+                  family = "binomial", trControl = train_control)
+print(logit_cv)
+
+# Stop parallel processing
+stopCluster(cl)
 ```
