@@ -41,9 +41,9 @@ Include:
 
 \- Aim of the analysis
 
- - Overview of the dataset (GSE88884)
+-   Overview of the dataset (GSE88884)
 
- - Outline of steps: Data cleaning → EDA → Modelling → Interpretation
+-   Outline of steps: Data cleaning → EDA → Modelling → Interpretation
 
 # 2 Data Import and preprocess(GSE88884)
 
@@ -52,7 +52,7 @@ Include:
 Load the preprocessed gene expression matrix. The data contains **92,343
 probeset IDs** and **1,820 patient samples**.
 
-```{r}
+```{r message=FALSE, warning=FALSE}
 library(readr)
 library(tidyverse)
 
@@ -60,12 +60,86 @@ library(tidyverse)
 # download from GSE88884
 expr_raw <- read_tsv("data/GSE88884_ILLUMINATE1and2_SLEbaselineVsHealthy_preprocessed.txt")
 expr_df <- as.data.frame(expr_raw)
-rownames(expr_df) <- expr_df$probeset
-expr_df$probeset <- NULL
 
 dim(expr_df) #92343 genes and 1820 patients
 head(expr_df)[, 1:5]
 ```
+
+### Gene Symbol Mapping and Aggregation
+
+```{r message=FALSE, warning=FALSE}
+library(hta20transcriptcluster.db)
+library(AnnotationDbi)
+library(dplyr)
+library(tibble)
+
+#Removes the :1 suffix from probe IDs 
+expr_df <- expr_df %>%
+  mutate(probe_clean = sub(":1$", "", probeset))
+
+# Map using Bioconductor annotation database
+mapped_annot <- AnnotationDbi::select(
+  hta20transcriptcluster.db,
+  keys = unique(expr_df$probe_clean),
+  columns = c("SYMBOL", "GENENAME", "ENSEMBL"),
+  keytype = "PROBEID"
+)
+
+#Joining expression data with gene annotations
+expr_annotated <- expr_df %>%
+  left_join(mapped_annot, by = c("probe_clean" = "PROBEID"))
+
+# Removing probes that couldn't be mapped
+expr_annotated <- expr_annotated %>%
+  filter(!is.na(SYMBOL))
+
+# Selecting one probe per gene
+expr_gene <- expr_annotated %>%
+  group_by(SYMBOL) %>%
+  slice_max(order_by = rowMeans(across(where(is.numeric))), n = 1, with_ties = FALSE) %>%
+  ungroup()
+
+#Finalizing expression matrix
+expr_final <- expr_gene %>%
+  dplyr::select(-probeset, -probe_clean, -GENENAME, -ENSEMBL) %>%
+  column_to_rownames("SYMBOL")
+
+#Overwrites expr_df with final cleaned data
+expr_df <- expr_final
+
+dim(expr_df)
+head(expr_df)[, 1:5]
+```
+
+The expression matrix originally contained 92,343 probeset IDs, each
+representing individual probes from the microarray platform. To convert
+this data into a more interpretable gene-level matrix, we performed the
+following steps:
+
+1.  **Probe ID cleaning**: We removed the `:1` suffix from each probe ID
+    to match the annotation database.
+
+2.  **Annotation mapping**: Using the `hta20transcriptcluster.db`
+    Bioconductor annotation package, we mapped each cleaned probe ID to
+    its corresponding gene symbol (`SYMBOL`), gene name (`GENENAME`),
+    and Ensembl ID.
+
+3.  **Filtering**: Probes that could not be mapped to any known gene
+    symbol were removed.
+
+4.  **Aggregation**: For genes that had multiple probes, we retained
+    only the probe with the **highest average expression across all
+    samples**. This ensures we keep the most representative probe for
+    each gene and avoids duplication in downstream analyses.
+
+5.  **Final expression matrix**: The resulting matrix has gene symbols
+    as row names and retains all 1,820 samples as columns. We stored
+    this final gene-level matrix as `expr_df`, which is used in all
+    subsequent analyses.
+
+As a result, the number of features was reduced from 92,343 to
+22,072—representing unique genes suitable for differential expression
+and machine learning tasks.
 
 ## 2.2 Phenotypic data
 
@@ -78,10 +152,10 @@ gse88884 <- gse88884$GSE88884_series_matrix.txt.gz
 pheno_gse88884 <- pData(gse88884)
 
 colnames(pheno_gse88884)
-head(pheno_gse88884$supplementary_file)
+#head(pheno_gse88884$supplementary_file)
 ```
 
-### Sample Mapping
+### Patients Mapping
 
 We extracted the mapping between sample accession numbers (GSM IDs) and
 CEL filenames from the supplementary_file column in the phenotypic data.
@@ -116,19 +190,11 @@ expr_df_matched <- expr_df[, matched_pheno$cel_filename]
 name_map <- setNames(matched_pheno$GSM_ID, matched_pheno$cel_filename)
 colnames(expr_df_matched) <- name_map[colnames(expr_df_matched)]
 
-head(expr_df_matched)
 dim(expr_df_matched)
+head(expr_df_matched)[, 0:5]
 ```
 
-### Keep the Probe IDs
-
-"Probe IDs correspond to the Ensembl gene symbols or internal IDs
-generated in their processing pipeline."
-
-We used probeset IDs as feature names. Biological interpretation of
-individual probes was not performed but can be done in future work.
-
-### Data cleaning 
+### Data cleaning
 
 In this section, we cleaned and processed the clinical (phenotypic) data
 from the GSE88884 dataset to prepare it for exploratory data analysis
@@ -277,7 +343,7 @@ clinical metadata and prepared for downstream differential expression
 analysis and predictive modelling.
 
 ```{r}
-head(expr_df_matched)
+head(expr_df_matched)[,1:5]
 ```
 
 ## 2.2 Clinical Data (`pheno_clean`)
