@@ -1,47 +1,70 @@
-# 🧬 Data Cleaning - GSE88884 SLE Dataset
+# DATA3888
+This project uses gene expression and clinical data from the GSE88884 study to explore biomarkers and develop a risk prediction model for Systemic Lupus Erythematosus (SLE).
 
-This branch contains the **data preprocessing and cleaning steps** for our biomedical project using the GSE88884 dataset.
+## 📂 Project Structure
 
----
+- **data/**: Raw and cleaned datasets.
+- **scripts/**: R code files for data cleaning, analysis, and modelling.
+- **results/**: Output files (plots, tables).
+- **shiny_app/**: Optional folder for future deployment of interactive risk calculator.
 
-## 📄 Overview
+## Data Access
+The large raw datasets are NOT uploaded to GitHub due to size limits. Download datasets from this link:
+``` perl
+https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE88884
+```
+Place them in the data/ folder to run the analysis.
 
-We processed and cleaned the following datasets:
+Link to google drive for files that are too large for github:
+``` perl
+https://drive.google.com/drive/folders/1X8KMvZ5hE9LekCa_Tg7TOucRaRggEeFA?usp=drive_link
+```
 
-1. **Gene Expression Data**  
-   Pre-processed microarray gene expression matrix, filtered and matched to clinical samples.
+## Branch Workflow
 
-2. **Phenotypic (Clinical) Data**  
-   Metadata including age, sex, race, complement levels, anti-dsDNA antibody status, and SLE Disease Activity Index (SLEDAI) scores.
+We follow a **branch-per-task workflow** to collaborate efficiently:
 
----
+| Branch Name             | Purpose                                                   |
+|------------------------|-----------------------------------------------------------|
+| `main`                 | Stable and merged version of all work                     |
+| `data-cleaning`        | Data preprocessing (completed)                             |
+| `eda-analysis`        | Exploratory Data Analysis (completed)                 |
+| `differential-analysis`| Differential Expression Analysis (completed)         |
+| `model-training`      | Predictive Model Development ()             |
+| `shiny-app`           | Shiny App Deployment (later)                    |
 
-## 📂 Files in this branch
 
-| File                                         | Description                                       |
-|----------------------------------------------|---------------------------------------------------|
-| `scripts/01_data_cleaning.qmd`              | Quarto file containing the data cleaning workflow |
-| `.gitignore`                                | To ignore large data files and temporary files    |
-| `README.md`                                 | This file (branch-specific instructions)          |
+## 👥 How to Contribute
 
----
+1. Clone the repository:
+```bash
+git clone https://github.com/jzhe2658/data3888.git
+cd data3888
+```
+2. Checkout the data-cleaning branch
+```bash
+git checkout data-cleaning
+```
 
-## ✅ Cleaned Data
+3. Create your own feature branch
+For example, if you are doing EDA: (please follow the table aboove)
+```bash
+git checkout eda-analysis
+```
 
-We created the following cleaned data objects:
+4. Work on your scripts
+Place your .qmd/.Rmd or .R script in the scripts/ folder.
 
-| Object               | Description                                             |
-|----------------------|---------------------------------------------------------|
-| `expr_df_matched`    | Cleaned gene expression matrix (probes × samples)       |
-| `pheno_clean`        | Cleaned phenotypic (clinical) data                      |
+5. Add and commit your changes
+```bash
+git add scripts/02_eda_analysis.qmd
+git commit -m "Add EDA analysis script"
+git push -u origin eda-analysis
+```
 
----
+6. Open a Pull Request
+Once your analysis is complete, open a pull request to merge your branch into main.
 
-## 📥 Access to Cleaned Data
-
-The cleaned datasets (`.rds` format) are **NOT stored in GitHub** due to size limits.
-
-Please download them from the following link:
-➡️ https://drive.google.com/drive/folders/1X8KMvZ5hE9LekCa_Tg7TOucRaRggEeFA?usp=drive_link
-
-Once downloaded, place them in the `data/` folder:
+⚠️ Data Size Notice
+Do NOT commit large dataset files (.txt, .rds, .csv) to the repository.
+Only analysis scripts and documentation should be committed.
