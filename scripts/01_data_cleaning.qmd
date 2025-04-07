@@ -325,6 +325,28 @@ colnames(pheno_clean)
 head(pheno_clean)
 ```
 
+### NA value
+
+```{r}
+# Count NA values in each column
+na_counts <- sapply(pheno_clean, function(x) sum(is.na(x)))
+
+# Convert to a data frame for better display
+na_table <- data.frame(Column = names(na_counts), Number_of_NA_Values = na_counts)
+
+# View the table
+print(na_table)
+
+# Select rows where at least one column is NA
+rows_with_na <- pheno_clean[!complete.cases(pheno_clean), ]
+
+# View the result
+print(rows_with_na)
+
+# Remove rows with any NA values
+pheno_clean <- pheno_clean[complete.cases(pheno_clean), ]
+```
+
 # 3 Data Overview
 
 In this analysis, we used two cleaned datasets derived from the GSE88884
