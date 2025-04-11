@@ -97,5 +97,26 @@ ggplot(merged_df, aes(x = PC1, y = PC2, color = c3c4_combo)) +
   )
 ```
 
+```{r}
+ggplot(merged_df, aes(x = PC1, y = PC2, color = sledai_at_baseline)) +
+  geom_point(size = 2) +
+  theme_bw() +
+  labs(
+    title = "PCA by SLEDAI value",
+    x = "PC1", y = "PC2",
+    color = "SLEDAI value"
+  )
+```
 
+
+
+```{r}
+sdev <- pca_res$sdev
+var_explained <- sdev^2 / sum(sdev^2)
+
+plot(var_explained[1:20], type = "b", 
+     xlab = "Principal Component", ylab = "Proportion of Variance Explained",
+     main = "Scree Plot")
+
+```
 

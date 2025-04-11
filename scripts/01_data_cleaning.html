@@ -7,7 +7,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
 <meta name="author" content="(Place your name/Unikey/SID)">
-<meta name="dcterms.date" content="2025-04-06">
+<meta name="dcterms.date" content="2025-04-07">
 
 <title>DATA3888_2025 Biomedical</title>
 <style>
@@ -3102,6 +3102,7 @@ vertical-align: -.125em;
   <ul class="collapse">
   <li><a href="#patients-mapping" id="toc-patients-mapping" class="nav-link" data-scroll-target="#patients-mapping">Patients Mapping</a></li>
   <li><a href="#data-cleaning" id="toc-data-cleaning" class="nav-link" data-scroll-target="#data-cleaning">Data cleaning</a></li>
+  <li><a href="#na-value" id="toc-na-value" class="nav-link" data-scroll-target="#na-value">NA value</a></li>
   </ul></li>
   </ul></li>
   <li><a href="#data-overview" id="toc-data-overview" class="nav-link" data-scroll-target="#data-overview">3 Data Overview</a>
@@ -3134,7 +3135,7 @@ vertical-align: -.125em;
     <div>
     <div class="quarto-title-meta-heading">Published</div>
     <div class="quarto-title-meta-contents">
-      <p class="date">April 6, 2025</p>
+      <p class="date">April 7, 2025</p>
     </div>
   </div>
   
@@ -3606,6 +3607,339 @@ GSM2350878      &lt;NA&gt; NA      &lt;NA&gt; NA A520844009398540914154212469472
 </div>
 </div>
 </section>
+<section id="na-value" class="level3">
+<h3 class="anchored" data-anchor-id="na-value">NA value</h3>
+<div class="cell">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb25"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb25-1"><a href="#cb25-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Count NA values in each column</span></span>
+<span id="cb25-2"><a href="#cb25-2" aria-hidden="true" tabindex="-1"></a>na_counts <span class="ot">&lt;-</span> <span class="fu">sapply</span>(pheno_clean, <span class="cf">function</span>(x) <span class="fu">sum</span>(<span class="fu">is.na</span>(x)))</span>
+<span id="cb25-3"><a href="#cb25-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb25-4"><a href="#cb25-4" aria-hidden="true" tabindex="-1"></a><span class="co"># Convert to a data frame for better display</span></span>
+<span id="cb25-5"><a href="#cb25-5" aria-hidden="true" tabindex="-1"></a>na_table <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(<span class="at">Column =</span> <span class="fu">names</span>(na_counts), <span class="at">Number_of_NA_Values =</span> na_counts)</span>
+<span id="cb25-6"><a href="#cb25-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb25-7"><a href="#cb25-7" aria-hidden="true" tabindex="-1"></a><span class="co"># View the table</span></span>
+<span id="cb25-8"><a href="#cb25-8" aria-hidden="true" tabindex="-1"></a><span class="fu">print</span>(na_table)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+<div class="cell-output cell-output-stdout">
+<pre><code>                                     Column Number_of_NA_Values
+sledai_at_baseline       sledai_at_baseline                  64
+group                                 group                   0
+age_at_baseline             age_at_baseline                  64
+sex                                     sex                  34
+race                                   race                  64
+region                               region                  64
+batch                                 batch                   0
+time                                   time                   0
+adna_at_baseline           adna_at_baseline                  64
+antidsdna_at_baseline antidsdna_at_baseline                  66
+c3_status                         c3_status                  68
+c3                                       c3                  68
+c4_status                         c4_status                  68
+c4                                       c4                  68
+cel_filename                   cel_filename                   0</code></pre>
+</div>
+<details class="code-fold">
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb27"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb27-1"><a href="#cb27-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Select rows where at least one column is NA</span></span>
+<span id="cb27-2"><a href="#cb27-2" aria-hidden="true" tabindex="-1"></a>rows_with_na <span class="ot">&lt;-</span> pheno_clean[<span class="sc">!</span><span class="fu">complete.cases</span>(pheno_clean), ]</span>
+<span id="cb27-3"><a href="#cb27-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb27-4"><a href="#cb27-4" aria-hidden="true" tabindex="-1"></a><span class="co"># View the result</span></span>
+<span id="cb27-5"><a href="#cb27-5" aria-hidden="true" tabindex="-1"></a><span class="fu">print</span>(rows_with_na)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+<div class="cell-output cell-output-stdout">
+<pre><code>           sledai_at_baseline  group age_at_baseline    sex               race
+GSM2350873                 NA Normal              NA Female               &lt;NA&gt;
+GSM2350874                 NA Normal              NA   &lt;NA&gt;               &lt;NA&gt;
+GSM2350875                 NA Normal              NA Female               &lt;NA&gt;
+GSM2350876                 NA Normal              NA Female               &lt;NA&gt;
+GSM2350877                 NA Normal              NA   &lt;NA&gt;               &lt;NA&gt;
+GSM2350878                 NA Normal              NA   &lt;NA&gt;               &lt;NA&gt;
+GSM2350879                 NA Normal              NA   &lt;NA&gt;               &lt;NA&gt;
+GSM2350880                 NA Normal              NA   &lt;NA&gt;               &lt;NA&gt;
+GSM2350881                 NA Normal              NA Female               &lt;NA&gt;
+GSM2350882                 NA Normal              NA Female               &lt;NA&gt;
+GSM2350883                 NA Normal              NA   &lt;NA&gt;               &lt;NA&gt;
+GSM2350884                 NA Normal              NA Female               &lt;NA&gt;
+GSM2350885                 NA Normal              NA Female               &lt;NA&gt;
+GSM2350886                 NA Normal              NA   &lt;NA&gt;               &lt;NA&gt;
+GSM2350887                 NA Normal              NA Female               &lt;NA&gt;
+GSM2350888                 NA Normal              NA Female               &lt;NA&gt;
+GSM2350889                 NA Normal              NA   &lt;NA&gt;               &lt;NA&gt;
+GSM2350890                 NA Normal              NA   &lt;NA&gt;               &lt;NA&gt;
+GSM2350891                 NA Normal              NA   &lt;NA&gt;               &lt;NA&gt;
+GSM2350892                 NA Normal              NA   &lt;NA&gt;               &lt;NA&gt;
+GSM2350893                 NA Normal              NA   &lt;NA&gt;               &lt;NA&gt;
+GSM2350894                 NA Normal              NA Female               &lt;NA&gt;
+GSM2350895                 NA Normal              NA   &lt;NA&gt;               &lt;NA&gt;
+GSM2350896                 NA Normal              NA Female               &lt;NA&gt;
+GSM2350897                 NA Normal              NA Female               &lt;NA&gt;
+GSM2350898                 NA Normal              NA   &lt;NA&gt;               &lt;NA&gt;
+GSM2350899                 NA Normal              NA Female               &lt;NA&gt;
+GSM2350900                 NA Normal              NA Female               &lt;NA&gt;
+GSM2350901                 NA Normal              NA   &lt;NA&gt;               &lt;NA&gt;
+GSM2350902                 NA Normal              NA   &lt;NA&gt;               &lt;NA&gt;
+GSM2350903                 NA Normal              NA   &lt;NA&gt;               &lt;NA&gt;
+GSM2350904                 NA Normal              NA Female               &lt;NA&gt;
+GSM2350905                 NA Normal              NA Female               &lt;NA&gt;
+GSM2350906                 NA Normal              NA Female               &lt;NA&gt;
+GSM2350907                 NA Normal              NA Female               &lt;NA&gt;
+GSM2350908                 NA Normal              NA   &lt;NA&gt;               &lt;NA&gt;
+GSM2350909                 NA Normal              NA Female               &lt;NA&gt;
+GSM2350910                 NA Normal              NA   &lt;NA&gt;               &lt;NA&gt;
+GSM2350911                 NA Normal              NA   &lt;NA&gt;               &lt;NA&gt;
+GSM2350912                 NA Normal              NA   &lt;NA&gt;               &lt;NA&gt;
+GSM2350913                 NA Normal              NA Female               &lt;NA&gt;
+GSM2350914                 NA Normal              NA Female               &lt;NA&gt;
+GSM2350915                 NA Normal              NA   &lt;NA&gt;               &lt;NA&gt;
+GSM2350916                 NA Normal              NA   &lt;NA&gt;               &lt;NA&gt;
+GSM2350917                 NA Normal              NA   &lt;NA&gt;               &lt;NA&gt;
+GSM2350918                 NA Normal              NA   &lt;NA&gt;               &lt;NA&gt;
+GSM2350919                 NA Normal              NA Female               &lt;NA&gt;
+GSM2350920                 NA Normal              NA Female               &lt;NA&gt;
+GSM2350921                 NA Normal              NA   &lt;NA&gt;               &lt;NA&gt;
+GSM2350922                 NA Normal              NA   &lt;NA&gt;               &lt;NA&gt;
+GSM2350923                 NA Normal              NA   &lt;NA&gt;               &lt;NA&gt;
+GSM2350924                 NA Normal              NA Female               &lt;NA&gt;
+GSM2350925                 NA Normal              NA Female               &lt;NA&gt;
+GSM2350926                 NA Normal              NA Female               &lt;NA&gt;
+GSM2350927                 NA Normal              NA Female               &lt;NA&gt;
+GSM2350928                 NA Normal              NA Female               &lt;NA&gt;
+GSM2350929                 NA Normal              NA Female               &lt;NA&gt;
+GSM2350930                 NA Normal              NA   &lt;NA&gt;               &lt;NA&gt;
+GSM2350931                 NA Normal              NA Female               &lt;NA&gt;
+GSM2350932                 NA Normal              NA   &lt;NA&gt;               &lt;NA&gt;
+GSM2351335                 NA    SLE              NA   &lt;NA&gt;               &lt;NA&gt;
+GSM2351570                 NA    SLE              NA   &lt;NA&gt;               &lt;NA&gt;
+GSM2351692                  8    SLE        32.18904 Female              white
+GSM2351775                  6    SLE        55.77260 Female           afr_amer
+GSM2351787                  8    SLE        26.45205 Female              white
+GSM2351903                  4    SLE        50.15068 Female              white
+GSM2352086                 NA    SLE              NA   &lt;NA&gt;               &lt;NA&gt;
+GSM2352170                 NA    SLE              NA   &lt;NA&gt;               &lt;NA&gt;
+GSM2352488                 10    SLE        42.87158 Female amer_ind_ak_native
+GSM2352673                  8    SLE        46.43836 Female           afr_amer
+              region          batch     time adna_at_baseline
+GSM2350873      &lt;NA&gt; Additional HCs baseline             &lt;NA&gt;
+GSM2350874      &lt;NA&gt;   ILLUMINATE-1 baseline             &lt;NA&gt;
+GSM2350875      &lt;NA&gt; Additional HCs baseline             &lt;NA&gt;
+GSM2350876      &lt;NA&gt; Additional HCs baseline             &lt;NA&gt;
+GSM2350877      &lt;NA&gt;   ILLUMINATE-1 baseline             &lt;NA&gt;
+GSM2350878      &lt;NA&gt;   ILLUMINATE-1 baseline             &lt;NA&gt;
+GSM2350879      &lt;NA&gt;   ILLUMINATE-2 baseline             &lt;NA&gt;
+GSM2350880      &lt;NA&gt;   ILLUMINATE-2 baseline             &lt;NA&gt;
+GSM2350881      &lt;NA&gt; Additional HCs baseline             &lt;NA&gt;
+GSM2350882      &lt;NA&gt; Additional HCs baseline             &lt;NA&gt;
+GSM2350883      &lt;NA&gt;   ILLUMINATE-2 baseline             &lt;NA&gt;
+GSM2350884      &lt;NA&gt; Additional HCs baseline             &lt;NA&gt;
+GSM2350885      &lt;NA&gt; Additional HCs baseline             &lt;NA&gt;
+GSM2350886      &lt;NA&gt;   ILLUMINATE-1 baseline             &lt;NA&gt;
+GSM2350887      &lt;NA&gt; Additional HCs baseline             &lt;NA&gt;
+GSM2350888      &lt;NA&gt; Additional HCs baseline             &lt;NA&gt;
+GSM2350889      &lt;NA&gt;   ILLUMINATE-1 baseline             &lt;NA&gt;
+GSM2350890      &lt;NA&gt;   ILLUMINATE-2 baseline             &lt;NA&gt;
+GSM2350891      &lt;NA&gt;   ILLUMINATE-2 baseline             &lt;NA&gt;
+GSM2350892      &lt;NA&gt;   ILLUMINATE-1 baseline             &lt;NA&gt;
+GSM2350893      &lt;NA&gt;   ILLUMINATE-1 baseline             &lt;NA&gt;
+GSM2350894      &lt;NA&gt; Additional HCs baseline             &lt;NA&gt;
+GSM2350895      &lt;NA&gt;   ILLUMINATE-1 baseline             &lt;NA&gt;
+GSM2350896      &lt;NA&gt; Additional HCs baseline             &lt;NA&gt;
+GSM2350897      &lt;NA&gt; Additional HCs baseline             &lt;NA&gt;
+GSM2350898      &lt;NA&gt;   ILLUMINATE-1 baseline             &lt;NA&gt;
+GSM2350899      &lt;NA&gt; Additional HCs baseline             &lt;NA&gt;
+GSM2350900      &lt;NA&gt; Additional HCs baseline             &lt;NA&gt;
+GSM2350901      &lt;NA&gt;   ILLUMINATE-2 baseline             &lt;NA&gt;
+GSM2350902      &lt;NA&gt;   ILLUMINATE-2 baseline             &lt;NA&gt;
+GSM2350903      &lt;NA&gt;   ILLUMINATE-1 baseline             &lt;NA&gt;
+GSM2350904      &lt;NA&gt; Additional HCs baseline             &lt;NA&gt;
+GSM2350905      &lt;NA&gt; Additional HCs baseline             &lt;NA&gt;
+GSM2350906      &lt;NA&gt; Additional HCs baseline             &lt;NA&gt;
+GSM2350907      &lt;NA&gt; Additional HCs baseline             &lt;NA&gt;
+GSM2350908      &lt;NA&gt;   ILLUMINATE-2 baseline             &lt;NA&gt;
+GSM2350909      &lt;NA&gt; Additional HCs baseline             &lt;NA&gt;
+GSM2350910      &lt;NA&gt;   ILLUMINATE-1 baseline             &lt;NA&gt;
+GSM2350911      &lt;NA&gt;   ILLUMINATE-1 baseline             &lt;NA&gt;
+GSM2350912      &lt;NA&gt;   ILLUMINATE-1 baseline             &lt;NA&gt;
+GSM2350913      &lt;NA&gt; Additional HCs baseline             &lt;NA&gt;
+GSM2350914      &lt;NA&gt; Additional HCs baseline             &lt;NA&gt;
+GSM2350915      &lt;NA&gt;   ILLUMINATE-1 baseline             &lt;NA&gt;
+GSM2350916      &lt;NA&gt;   ILLUMINATE-2 baseline             &lt;NA&gt;
+GSM2350917      &lt;NA&gt;   ILLUMINATE-2 baseline             &lt;NA&gt;
+GSM2350918      &lt;NA&gt;   ILLUMINATE-1 baseline             &lt;NA&gt;
+GSM2350919      &lt;NA&gt; Additional HCs baseline             &lt;NA&gt;
+GSM2350920      &lt;NA&gt; Additional HCs baseline             &lt;NA&gt;
+GSM2350921      &lt;NA&gt;   ILLUMINATE-1 baseline             &lt;NA&gt;
+GSM2350922      &lt;NA&gt;   ILLUMINATE-2 baseline             &lt;NA&gt;
+GSM2350923      &lt;NA&gt;   ILLUMINATE-1 baseline             &lt;NA&gt;
+GSM2350924      &lt;NA&gt; Additional HCs baseline             &lt;NA&gt;
+GSM2350925      &lt;NA&gt; Additional HCs baseline             &lt;NA&gt;
+GSM2350926      &lt;NA&gt; Additional HCs baseline             &lt;NA&gt;
+GSM2350927      &lt;NA&gt; Additional HCs baseline             &lt;NA&gt;
+GSM2350928      &lt;NA&gt; Additional HCs baseline             &lt;NA&gt;
+GSM2350929      &lt;NA&gt; Additional HCs baseline             &lt;NA&gt;
+GSM2350930      &lt;NA&gt;   ILLUMINATE-2 baseline             &lt;NA&gt;
+GSM2350931      &lt;NA&gt; Additional HCs baseline             &lt;NA&gt;
+GSM2350932      &lt;NA&gt;   ILLUMINATE-2 baseline             &lt;NA&gt;
+GSM2351335      &lt;NA&gt;   ILLUMINATE-1 baseline             &lt;NA&gt;
+GSM2351570      &lt;NA&gt;   ILLUMINATE-1 baseline             &lt;NA&gt;
+GSM2351692    europe   ILLUMINATE-1 baseline         Negative
+GSM2351775    us_can   ILLUMINATE-1 baseline         Negative
+GSM2351787    us_can   ILLUMINATE-1 baseline         Negative
+GSM2351903    us_can   ILLUMINATE-2 baseline         Negative
+GSM2352086      &lt;NA&gt;   ILLUMINATE-1 baseline             &lt;NA&gt;
+GSM2352170      &lt;NA&gt;   ILLUMINATE-2 baseline             &lt;NA&gt;
+GSM2352488 mex_ca_sa   ILLUMINATE-1 baseline         Positive
+GSM2352673    us_can   ILLUMINATE-1 baseline         Positive
+           antidsdna_at_baseline c3_status   c3 c4_status    c4
+GSM2350873                    NA      &lt;NA&gt;   NA      &lt;NA&gt;    NA
+GSM2350874                    NA      &lt;NA&gt;   NA      &lt;NA&gt;    NA
+GSM2350875                    NA      &lt;NA&gt;   NA      &lt;NA&gt;    NA
+GSM2350876                    NA      &lt;NA&gt;   NA      &lt;NA&gt;    NA
+GSM2350877                    NA      &lt;NA&gt;   NA      &lt;NA&gt;    NA
+GSM2350878                    NA      &lt;NA&gt;   NA      &lt;NA&gt;    NA
+GSM2350879                    NA      &lt;NA&gt;   NA      &lt;NA&gt;    NA
+GSM2350880                    NA      &lt;NA&gt;   NA      &lt;NA&gt;    NA
+GSM2350881                    NA      &lt;NA&gt;   NA      &lt;NA&gt;    NA
+GSM2350882                    NA      &lt;NA&gt;   NA      &lt;NA&gt;    NA
+GSM2350883                    NA      &lt;NA&gt;   NA      &lt;NA&gt;    NA
+GSM2350884                    NA      &lt;NA&gt;   NA      &lt;NA&gt;    NA
+GSM2350885                    NA      &lt;NA&gt;   NA      &lt;NA&gt;    NA
+GSM2350886                    NA      &lt;NA&gt;   NA      &lt;NA&gt;    NA
+GSM2350887                    NA      &lt;NA&gt;   NA      &lt;NA&gt;    NA
+GSM2350888                    NA      &lt;NA&gt;   NA      &lt;NA&gt;    NA
+GSM2350889                    NA      &lt;NA&gt;   NA      &lt;NA&gt;    NA
+GSM2350890                    NA      &lt;NA&gt;   NA      &lt;NA&gt;    NA
+GSM2350891                    NA      &lt;NA&gt;   NA      &lt;NA&gt;    NA
+GSM2350892                    NA      &lt;NA&gt;   NA      &lt;NA&gt;    NA
+GSM2350893                    NA      &lt;NA&gt;   NA      &lt;NA&gt;    NA
+GSM2350894                    NA      &lt;NA&gt;   NA      &lt;NA&gt;    NA
+GSM2350895                    NA      &lt;NA&gt;   NA      &lt;NA&gt;    NA
+GSM2350896                    NA      &lt;NA&gt;   NA      &lt;NA&gt;    NA
+GSM2350897                    NA      &lt;NA&gt;   NA      &lt;NA&gt;    NA
+GSM2350898                    NA      &lt;NA&gt;   NA      &lt;NA&gt;    NA
+GSM2350899                    NA      &lt;NA&gt;   NA      &lt;NA&gt;    NA
+GSM2350900                    NA      &lt;NA&gt;   NA      &lt;NA&gt;    NA
+GSM2350901                    NA      &lt;NA&gt;   NA      &lt;NA&gt;    NA
+GSM2350902                    NA      &lt;NA&gt;   NA      &lt;NA&gt;    NA
+GSM2350903                    NA      &lt;NA&gt;   NA      &lt;NA&gt;    NA
+GSM2350904                    NA      &lt;NA&gt;   NA      &lt;NA&gt;    NA
+GSM2350905                    NA      &lt;NA&gt;   NA      &lt;NA&gt;    NA
+GSM2350906                    NA      &lt;NA&gt;   NA      &lt;NA&gt;    NA
+GSM2350907                    NA      &lt;NA&gt;   NA      &lt;NA&gt;    NA
+GSM2350908                    NA      &lt;NA&gt;   NA      &lt;NA&gt;    NA
+GSM2350909                    NA      &lt;NA&gt;   NA      &lt;NA&gt;    NA
+GSM2350910                    NA      &lt;NA&gt;   NA      &lt;NA&gt;    NA
+GSM2350911                    NA      &lt;NA&gt;   NA      &lt;NA&gt;    NA
+GSM2350912                    NA      &lt;NA&gt;   NA      &lt;NA&gt;    NA
+GSM2350913                    NA      &lt;NA&gt;   NA      &lt;NA&gt;    NA
+GSM2350914                    NA      &lt;NA&gt;   NA      &lt;NA&gt;    NA
+GSM2350915                    NA      &lt;NA&gt;   NA      &lt;NA&gt;    NA
+GSM2350916                    NA      &lt;NA&gt;   NA      &lt;NA&gt;    NA
+GSM2350917                    NA      &lt;NA&gt;   NA      &lt;NA&gt;    NA
+GSM2350918                    NA      &lt;NA&gt;   NA      &lt;NA&gt;    NA
+GSM2350919                    NA      &lt;NA&gt;   NA      &lt;NA&gt;    NA
+GSM2350920                    NA      &lt;NA&gt;   NA      &lt;NA&gt;    NA
+GSM2350921                    NA      &lt;NA&gt;   NA      &lt;NA&gt;    NA
+GSM2350922                    NA      &lt;NA&gt;   NA      &lt;NA&gt;    NA
+GSM2350923                    NA      &lt;NA&gt;   NA      &lt;NA&gt;    NA
+GSM2350924                    NA      &lt;NA&gt;   NA      &lt;NA&gt;    NA
+GSM2350925                    NA      &lt;NA&gt;   NA      &lt;NA&gt;    NA
+GSM2350926                    NA      &lt;NA&gt;   NA      &lt;NA&gt;    NA
+GSM2350927                    NA      &lt;NA&gt;   NA      &lt;NA&gt;    NA
+GSM2350928                    NA      &lt;NA&gt;   NA      &lt;NA&gt;    NA
+GSM2350929                    NA      &lt;NA&gt;   NA      &lt;NA&gt;    NA
+GSM2350930                    NA      &lt;NA&gt;   NA      &lt;NA&gt;    NA
+GSM2350931                    NA      &lt;NA&gt;   NA      &lt;NA&gt;    NA
+GSM2350932                    NA      &lt;NA&gt;   NA      &lt;NA&gt;    NA
+GSM2351335                    NA      &lt;NA&gt;   NA      &lt;NA&gt;    NA
+GSM2351570                    NA      &lt;NA&gt;   NA      &lt;NA&gt;    NA
+GSM2351692                     3      &lt;NA&gt;   NA      &lt;NA&gt;    NA
+GSM2351775                     3      &lt;NA&gt;   NA      &lt;NA&gt;    NA
+GSM2351787                    NA         N 1.12         N 0.201
+GSM2351903                    11      &lt;NA&gt;   NA      &lt;NA&gt;    NA
+GSM2352086                    NA      &lt;NA&gt;   NA      &lt;NA&gt;    NA
+GSM2352170                    NA      &lt;NA&gt;   NA      &lt;NA&gt;    NA
+GSM2352488                    69      &lt;NA&gt;   NA      &lt;NA&gt;    NA
+GSM2352673                    NA         N 1.01         N 0.186
+                                    cel_filename
+GSM2350873 A52084400939561101515421438861513.CEL
+GSM2350874 A52084400940545091515421247226804.CEL
+GSM2350875 A52084400939561101515421438861515.CEL
+GSM2350876 A52084400939558101515421438861330.CEL
+GSM2350877 A52084400939215081815420934611166.CEL
+GSM2350878 A52084400939854091415421246947259.CEL
+GSM2350879 A52084400939561101515421438861522.CEL
+GSM2350880 A52084400940144101215421438273207.CEL
+GSM2350881 A52084400939558101515421438861301.CEL
+GSM2350882 A52084400939558101515421438861336.CEL
+GSM2350883 A52084400940081100815421437950386.CEL
+GSM2350884 A52084400939558101515421438861309.CEL
+GSM2350885 A52084400939560101515421438861423.CEL
+GSM2350886 A52084400939234091415421177246981.CEL
+GSM2350887 A52084400939560101515421438861439.CEL
+GSM2350888 A52084400939558101515421438861310.CEL
+GSM2350889 A52084400939272081315420891403960.CEL
+GSM2350890 A52084400940729100515421373263910.CEL
+GSM2350891 A52084400940070100715421373649439.CEL
+GSM2350892 A52084400939842091415421247047395.CEL
+GSM2350893 A52084400940067100715421373649240.CEL
+GSM2350894 A52084400939558101515421438861348.CEL
+GSM2350895 A52084400940546091515421247226853.CEL
+GSM2350896 A52084400939558101515421438861347.CEL
+GSM2350897 A52084400939561101515421438861488.CEL
+GSM2350898 A52084400939497101415421438760478.CEL
+GSM2350899 A52084400939558101515421438861317.CEL
+GSM2350900 A52084400939558101515421438861300.CEL
+GSM2350901 A52084400940102100915421438150684.CEL
+GSM2350902 A52084400940140101215421438273039.CEL
+GSM2350903 A52084400939232091415421177246822.CEL
+GSM2350904 A52084400939558101515421438861344.CEL
+GSM2350905 A52084400939560101515421438861448.CEL
+GSM2350906 A52084400939559101515421438861363.CEL
+GSM2350907 A52084400939558101515421438861302.CEL
+GSM2350908 A52084400939497101415421438760473.CEL
+GSM2350909 A52084400939560101515421438861443.CEL
+GSM2350910 A52084400939853091415421246947185.CEL
+GSM2350911 A52084400939497101415421438760467.CEL
+GSM2350912 A52084400940068100715421373649295.CEL
+GSM2350913 A52084400939560101515421438861435.CEL
+GSM2350914 A52084400939558101515421438861306.CEL
+GSM2350915 A52084400939115082215421026196691.CEL
+GSM2350916 A52084400939705101515421439062297.CEL
+GSM2350917 A52084400939559101515421438861389.CEL
+GSM2350918 A52084400939921091515421247126570.CEL
+GSM2350919 A52084400939561101515421438861511.CEL
+GSM2350920 A52084400939560101515421438861446.CEL
+GSM2350921 A52084400940658100115421372840900.CEL
+GSM2350922 A52084400940082100815421437950485.CEL
+GSM2350923 A52084400939116082215421026196720.CEL
+GSM2350924 A52084400939558101515421438861304.CEL
+GSM2350925 A52084400939558101515421438861328.CEL
+GSM2350926 A52084400939560101515421438861427.CEL
+GSM2350927 A52084400939560101515421438861459.CEL
+GSM2350928 A52084400939558101515421438861339.CEL
+GSM2350929 A52084400939559101515421438861369.CEL
+GSM2350930 A52084400939558101515421438861333.CEL
+GSM2350931 A52084400939558101515421438861299.CEL
+GSM2350932 A52084400939495101415421438760331.CEL
+GSM2351335 A52084400939214081815420934611076.CEL
+GSM2351570 A52084400939232091415421177246869.CEL
+GSM2351692 A52084400940656100115421372840792.CEL
+GSM2351775 A52084400939233091415421177246921.CEL
+GSM2351787 A52084400940069100715421373649349.CEL
+GSM2351903 A52084400940070100715421373649403.CEL
+GSM2352086 A52084400939116082215421026196751.CEL
+GSM2352170 A52084400940081100815421437950389.CEL
+GSM2352488 A52084400939907082115420971516265.CEL
+GSM2352673 A52084400939855091415421246947301.CEL</code></pre>
+</div>
+<details class="code-fold">
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb29"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb29-1"><a href="#cb29-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Remove rows with any NA values</span></span>
+<span id="cb29-2"><a href="#cb29-2" aria-hidden="true" tabindex="-1"></a>pheno_clean <span class="ot">&lt;-</span> pheno_clean[<span class="fu">complete.cases</span>(pheno_clean), ]</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+</div>
+</section>
 </section>
 </section>
 <section id="data-overview" class="level1">
@@ -3617,7 +3951,7 @@ GSM2350878      &lt;NA&gt; NA      &lt;NA&gt; NA A520844009398540914154212469472
 <div class="cell">
 <details class="code-fold">
 <summary>Code</summary>
-<div class="sourceCode cell-code" id="cb25"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb25-1"><a href="#cb25-1" aria-hidden="true" tabindex="-1"></a><span class="fu">head</span>(expr_df_matched)[,<span class="dv">1</span><span class="sc">:</span><span class="dv">5</span>]</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb30"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb30-1"><a href="#cb30-1" aria-hidden="true" tabindex="-1"></a><span class="fu">head</span>(expr_df_matched)[,<span class="dv">1</span><span class="sc">:</span><span class="dv">5</span>]</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </details>
 <div class="cell-output cell-output-stdout">
 <pre><code>         GSM2350873 GSM2350874 GSM2350875 GSM2350876 GSM2350877
@@ -3648,38 +3982,45 @@ A2ML1      5.680577   5.588080   5.984695   5.925912   5.827798</code></pre>
 <div class="cell">
 <details class="code-fold">
 <summary>Code</summary>
-<div class="sourceCode cell-code" id="cb27"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb27-1"><a href="#cb27-1" aria-hidden="true" tabindex="-1"></a><span class="fu">head</span>(pheno_clean)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb32"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb32-1"><a href="#cb32-1" aria-hidden="true" tabindex="-1"></a><span class="fu">head</span>(pheno_clean)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </details>
 <div class="cell-output cell-output-stdout">
-<pre><code>           sledai_at_baseline  group age_at_baseline    sex race region
-GSM2350873                 NA Normal              NA Female &lt;NA&gt;   &lt;NA&gt;
-GSM2350874                 NA Normal              NA   &lt;NA&gt; &lt;NA&gt;   &lt;NA&gt;
-GSM2350875                 NA Normal              NA Female &lt;NA&gt;   &lt;NA&gt;
-GSM2350876                 NA Normal              NA Female &lt;NA&gt;   &lt;NA&gt;
-GSM2350877                 NA Normal              NA   &lt;NA&gt; &lt;NA&gt;   &lt;NA&gt;
-GSM2350878                 NA Normal              NA   &lt;NA&gt; &lt;NA&gt;   &lt;NA&gt;
-                    batch     time adna_at_baseline antidsdna_at_baseline
-GSM2350873 Additional HCs baseline             &lt;NA&gt;                    NA
-GSM2350874   ILLUMINATE-1 baseline             &lt;NA&gt;                    NA
-GSM2350875 Additional HCs baseline             &lt;NA&gt;                    NA
-GSM2350876 Additional HCs baseline             &lt;NA&gt;                    NA
-GSM2350877   ILLUMINATE-1 baseline             &lt;NA&gt;                    NA
-GSM2350878   ILLUMINATE-1 baseline             &lt;NA&gt;                    NA
-           c3_status c3 c4_status c4                          cel_filename
-GSM2350873      &lt;NA&gt; NA      &lt;NA&gt; NA A52084400939561101515421438861513.CEL
-GSM2350874      &lt;NA&gt; NA      &lt;NA&gt; NA A52084400940545091515421247226804.CEL
-GSM2350875      &lt;NA&gt; NA      &lt;NA&gt; NA A52084400939561101515421438861515.CEL
-GSM2350876      &lt;NA&gt; NA      &lt;NA&gt; NA A52084400939558101515421438861330.CEL
-GSM2350877      &lt;NA&gt; NA      &lt;NA&gt; NA A52084400939215081815420934611166.CEL
-GSM2350878      &lt;NA&gt; NA      &lt;NA&gt; NA A52084400939854091415421246947259.CEL</code></pre>
+<pre><code>           sledai_at_baseline group age_at_baseline    sex     race     region
+GSM2350933                 11   SLE        48.04384 Female    white     europe
+GSM2350934                 16   SLE        37.85519 Female    white  mex_ca_sa
+GSM2350935                  8   SLE        46.89041 Female afr_amer     us_can
+GSM2350936                  8   SLE        24.47123 Female    white     europe
+GSM2350937                 17   SLE        29.08767 Female    white rest_world
+GSM2350938                 12   SLE        46.21918 Female    white     us_can
+                  batch     time adna_at_baseline antidsdna_at_baseline
+GSM2350933 ILLUMINATE-1 baseline         Positive                   148
+GSM2350934 ILLUMINATE-1 baseline         Positive                   297
+GSM2350935 ILLUMINATE-2 baseline         Negative                     3
+GSM2350936 ILLUMINATE-2 baseline         Positive                   297
+GSM2350937 ILLUMINATE-1 baseline         Positive                   297
+GSM2350938 ILLUMINATE-1 baseline         Negative                     9
+           c3_status    c3 c4_status    c4
+GSM2350933         L 0.760         L 0.067
+GSM2350934         L 0.741         N 0.216
+GSM2350935         N 1.270         H 0.510
+GSM2350936         L 0.639         L 0.064
+GSM2350937         L 0.535         L 0.095
+GSM2350938         L 0.795         L 0.092
+                                    cel_filename
+GSM2350933 A52084400939213081815420934611026.CEL
+GSM2350934 A52084400940658100115421372840880.CEL
+GSM2350935 A52084400940067100715421373649218.CEL
+GSM2350936 A52084400940070100715421373649393.CEL
+GSM2350937 A52084400939233091415421177246914.CEL
+GSM2350938 A52084400940544091515421247226754.CEL</code></pre>
 </div>
 </div>
 <div class="cell">
 <details class="code-fold">
 <summary>Code</summary>
-<div class="sourceCode cell-code" id="cb29"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb29-1"><a href="#cb29-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Save cleaned datasets</span></span>
-<span id="cb29-2"><a href="#cb29-2" aria-hidden="true" tabindex="-1"></a><span class="fu">saveRDS</span>(expr_df_matched, <span class="at">file =</span> <span class="st">&quot;data/expr_df_matched.rds&quot;</span>)</span>
-<span id="cb29-3"><a href="#cb29-3" aria-hidden="true" tabindex="-1"></a><span class="fu">saveRDS</span>(pheno_clean, <span class="at">file =</span> <span class="st">&quot;data/pheno_clean.rds&quot;</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb34"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb34-1"><a href="#cb34-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Save cleaned datasets</span></span>
+<span id="cb34-2"><a href="#cb34-2" aria-hidden="true" tabindex="-1"></a><span class="fu">saveRDS</span>(expr_df_matched, <span class="at">file =</span> <span class="st">&quot;data/expr_df_matched.rds&quot;</span>)</span>
+<span id="cb34-3"><a href="#cb34-3" aria-hidden="true" tabindex="-1"></a><span class="fu">saveRDS</span>(pheno_clean, <span class="at">file =</span> <span class="st">&quot;data/pheno_clean.rds&quot;</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </details>
 </div>
 <!-- -->
@@ -4157,394 +4498,416 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
   }
 });
 </script><div class="modal fade" id="quarto-embedded-source-code-modal" tabindex="-1" aria-labelledby="quarto-embedded-source-code-modal-label" aria-hidden="true"><div class="modal-dialog modal-dialog-scrollable"><div class="modal-content"><div class="modal-header"><h5 class="modal-title" id="quarto-embedded-source-code-modal-label">Source Code</h5><button class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><div class>
-<div class="sourceCode" id="cb30" data-shortcodes="false"><pre class="sourceCode markdown code-with-copy"><code class="sourceCode markdown"><span id="cb30-1"><a href="#cb30-1" aria-hidden="true" tabindex="-1"></a><span class="co">---</span></span>
-<span id="cb30-2"><a href="#cb30-2" aria-hidden="true" tabindex="-1"></a><span class="an">title:</span><span class="co"> &quot;DATA3888_2025 Biomedical&quot;</span></span>
-<span id="cb30-3"><a href="#cb30-3" aria-hidden="true" tabindex="-1"></a><span class="an">subtitle:</span><span class="co"> &quot;Predicting SLE Disease Risk Using Gene Expression Data&quot;</span></span>
-<span id="cb30-4"><a href="#cb30-4" aria-hidden="true" tabindex="-1"></a><span class="an">author:</span><span class="co"> &quot;(Place your name/Unikey/SID)&quot;</span></span>
-<span id="cb30-5"><a href="#cb30-5" aria-hidden="true" tabindex="-1"></a><span class="an">date:</span><span class="co"> &quot;`r format(Sys.time(), &#39;%d %B, %Y&#39;)`&quot;</span></span>
-<span id="cb30-6"><a href="#cb30-6" aria-hidden="true" tabindex="-1"></a><span class="an">format:</span></span>
-<span id="cb30-7"><a href="#cb30-7" aria-hidden="true" tabindex="-1"></a><span class="co">  html:</span></span>
-<span id="cb30-8"><a href="#cb30-8" aria-hidden="true" tabindex="-1"></a><span class="co">    code-tools: true</span></span>
-<span id="cb30-9"><a href="#cb30-9" aria-hidden="true" tabindex="-1"></a><span class="co">    code-fold: true</span></span>
-<span id="cb30-10"><a href="#cb30-10" aria-hidden="true" tabindex="-1"></a><span class="co">    fig_caption: yes</span></span>
-<span id="cb30-11"><a href="#cb30-11" aria-hidden="true" tabindex="-1"></a><span class="co">    number_sections: yes</span></span>
-<span id="cb30-12"><a href="#cb30-12" aria-hidden="true" tabindex="-1"></a><span class="co">    embed-resources: true</span></span>
-<span id="cb30-13"><a href="#cb30-13" aria-hidden="true" tabindex="-1"></a><span class="co">    theme: flatly</span></span>
-<span id="cb30-14"><a href="#cb30-14" aria-hidden="true" tabindex="-1"></a><span class="co">    css: </span></span>
-<span id="cb30-15"><a href="#cb30-15" aria-hidden="true" tabindex="-1"></a><span class="co">      - https://use.fontawesome.com/releases/v5.0.6/css/all.css</span></span>
-<span id="cb30-16"><a href="#cb30-16" aria-hidden="true" tabindex="-1"></a><span class="co">    toc: true</span></span>
-<span id="cb30-17"><a href="#cb30-17" aria-hidden="true" tabindex="-1"></a><span class="co">    toc_depth: 4</span></span>
-<span id="cb30-18"><a href="#cb30-18" aria-hidden="true" tabindex="-1"></a><span class="co">    toc_float: true</span></span>
-<span id="cb30-19"><a href="#cb30-19" aria-hidden="true" tabindex="-1"></a><span class="an">execute:</span></span>
-<span id="cb30-20"><a href="#cb30-20" aria-hidden="true" tabindex="-1"></a><span class="co">  echo: true</span></span>
-<span id="cb30-21"><a href="#cb30-21" aria-hidden="true" tabindex="-1"></a><span class="co">  tidy: true</span></span>
-<span id="cb30-22"><a href="#cb30-22" aria-hidden="true" tabindex="-1"></a><span class="an">editor:</span><span class="co"> </span></span>
-<span id="cb30-23"><a href="#cb30-23" aria-hidden="true" tabindex="-1"></a><span class="co">  markdown: </span></span>
-<span id="cb30-24"><a href="#cb30-24" aria-hidden="true" tabindex="-1"></a><span class="co">    wrap: 72</span></span>
-<span id="cb30-25"><a href="#cb30-25" aria-hidden="true" tabindex="-1"></a><span class="co">---</span></span>
-<span id="cb30-26"><a href="#cb30-26" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb30-27"><a href="#cb30-27" aria-hidden="true" tabindex="-1"></a><span class="in">```{r setup, include=FALSE}</span></span>
-<span id="cb30-28"><a href="#cb30-28" aria-hidden="true" tabindex="-1"></a><span class="in">library(tidyverse)</span></span>
-<span id="cb30-29"><a href="#cb30-29" aria-hidden="true" tabindex="-1"></a><span class="in">library(Biobase)</span></span>
-<span id="cb30-30"><a href="#cb30-30" aria-hidden="true" tabindex="-1"></a><span class="in">library(BiocGenerics)</span></span>
-<span id="cb30-31"><a href="#cb30-31" aria-hidden="true" tabindex="-1"></a><span class="in">library(GEOquery)</span></span>
-<span id="cb30-32"><a href="#cb30-32" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb30-33"><a href="#cb30-33" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb30-34"><a href="#cb30-34" aria-hidden="true" tabindex="-1"></a><span class="fu"># 1 Introduction</span></span>
-<span id="cb30-35"><a href="#cb30-35" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb30-36"><a href="#cb30-36" aria-hidden="true" tabindex="-1"></a>**Develop and deploy a risk calculator to predict SLE risk using gene</span>
-<span id="cb30-37"><a href="#cb30-37" aria-hidden="true" tabindex="-1"></a>expression and clinical data.**\</span>
-<span id="cb30-38"><a href="#cb30-38" aria-hidden="true" tabindex="-1"></a>Include:</span>
-<span id="cb30-39"><a href="#cb30-39" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb30-40"><a href="#cb30-40" aria-hidden="true" tabindex="-1"></a><span class="sc">\-</span> Background on SLE</span>
-<span id="cb30-41"><a href="#cb30-41" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb30-42"><a href="#cb30-42" aria-hidden="true" tabindex="-1"></a><span class="sc">\-</span> Aim of the analysis</span>
-<span id="cb30-43"><a href="#cb30-43" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb30-44"><a href="#cb30-44" aria-hidden="true" tabindex="-1"></a><span class="ss">-   </span>Overview of the dataset (GSE88884)</span>
-<span id="cb30-45"><a href="#cb30-45" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb30-46"><a href="#cb30-46" aria-hidden="true" tabindex="-1"></a><span class="ss">-   </span>Outline of steps: Data cleaning → EDA → Modelling → Interpretation</span>
-<span id="cb30-47"><a href="#cb30-47" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb30-48"><a href="#cb30-48" aria-hidden="true" tabindex="-1"></a><span class="fu"># 2 Data Import and preprocess(GSE88884)</span></span>
-<span id="cb30-49"><a href="#cb30-49" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb30-50"><a href="#cb30-50" aria-hidden="true" tabindex="-1"></a><span class="fu">## 2.1 Gene Expression Data</span></span>
-<span id="cb30-51"><a href="#cb30-51" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb30-52"><a href="#cb30-52" aria-hidden="true" tabindex="-1"></a>Load the preprocessed gene expression matrix. The data contains **92,343</span>
-<span id="cb30-53"><a href="#cb30-53" aria-hidden="true" tabindex="-1"></a>probeset IDs** and **1,820 patient samples**.</span>
-<span id="cb30-54"><a href="#cb30-54" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb30-55"><a href="#cb30-55" aria-hidden="true" tabindex="-1"></a><span class="in">```{r message=FALSE, warning=FALSE}</span></span>
-<span id="cb30-56"><a href="#cb30-56" aria-hidden="true" tabindex="-1"></a><span class="in">library(readr)</span></span>
-<span id="cb30-57"><a href="#cb30-57" aria-hidden="true" tabindex="-1"></a><span class="in">library(tidyverse)</span></span>
-<span id="cb30-58"><a href="#cb30-58" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb30-59"><a href="#cb30-59" aria-hidden="true" tabindex="-1"></a><span class="in"># 1. Load the gene expression data (already preprocessed)</span></span>
-<span id="cb30-60"><a href="#cb30-60" aria-hidden="true" tabindex="-1"></a><span class="in"># download from GSE88884</span></span>
-<span id="cb30-61"><a href="#cb30-61" aria-hidden="true" tabindex="-1"></a><span class="in">expr_raw &lt;- read_tsv(&quot;data/GSE88884_ILLUMINATE1and2_SLEbaselineVsHealthy_preprocessed.txt&quot;)</span></span>
-<span id="cb30-62"><a href="#cb30-62" aria-hidden="true" tabindex="-1"></a><span class="in">expr_df &lt;- as.data.frame(expr_raw)</span></span>
-<span id="cb30-63"><a href="#cb30-63" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb30-64"><a href="#cb30-64" aria-hidden="true" tabindex="-1"></a><span class="in">dim(expr_df) #92343 genes and 1820 patients</span></span>
-<span id="cb30-65"><a href="#cb30-65" aria-hidden="true" tabindex="-1"></a><span class="in">head(expr_df)[, 1:5]</span></span>
-<span id="cb30-66"><a href="#cb30-66" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb30-67"><a href="#cb30-67" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb30-68"><a href="#cb30-68" aria-hidden="true" tabindex="-1"></a><span class="fu">### Gene Symbol Mapping and Aggregation</span></span>
-<span id="cb30-69"><a href="#cb30-69" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb30-70"><a href="#cb30-70" aria-hidden="true" tabindex="-1"></a><span class="in">```{r message=FALSE, warning=FALSE}</span></span>
-<span id="cb30-71"><a href="#cb30-71" aria-hidden="true" tabindex="-1"></a><span class="in">library(hta20transcriptcluster.db)</span></span>
-<span id="cb30-72"><a href="#cb30-72" aria-hidden="true" tabindex="-1"></a><span class="in">library(AnnotationDbi)</span></span>
-<span id="cb30-73"><a href="#cb30-73" aria-hidden="true" tabindex="-1"></a><span class="in">library(dplyr)</span></span>
-<span id="cb30-74"><a href="#cb30-74" aria-hidden="true" tabindex="-1"></a><span class="in">library(tibble)</span></span>
-<span id="cb30-75"><a href="#cb30-75" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb30-76"><a href="#cb30-76" aria-hidden="true" tabindex="-1"></a><span class="in">#Removes the :1 suffix from probe IDs </span></span>
-<span id="cb30-77"><a href="#cb30-77" aria-hidden="true" tabindex="-1"></a><span class="in">expr_df &lt;- expr_df %&gt;%</span></span>
-<span id="cb30-78"><a href="#cb30-78" aria-hidden="true" tabindex="-1"></a><span class="in">  mutate(probe_clean = sub(&quot;:1$&quot;, &quot;&quot;, probeset))</span></span>
-<span id="cb30-79"><a href="#cb30-79" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb30-80"><a href="#cb30-80" aria-hidden="true" tabindex="-1"></a><span class="in"># Map using Bioconductor annotation database</span></span>
-<span id="cb30-81"><a href="#cb30-81" aria-hidden="true" tabindex="-1"></a><span class="in">mapped_annot &lt;- AnnotationDbi::select(</span></span>
-<span id="cb30-82"><a href="#cb30-82" aria-hidden="true" tabindex="-1"></a><span class="in">  hta20transcriptcluster.db,</span></span>
-<span id="cb30-83"><a href="#cb30-83" aria-hidden="true" tabindex="-1"></a><span class="in">  keys = unique(expr_df$probe_clean),</span></span>
-<span id="cb30-84"><a href="#cb30-84" aria-hidden="true" tabindex="-1"></a><span class="in">  columns = c(&quot;SYMBOL&quot;, &quot;GENENAME&quot;, &quot;ENSEMBL&quot;),</span></span>
-<span id="cb30-85"><a href="#cb30-85" aria-hidden="true" tabindex="-1"></a><span class="in">  keytype = &quot;PROBEID&quot;</span></span>
-<span id="cb30-86"><a href="#cb30-86" aria-hidden="true" tabindex="-1"></a><span class="in">)</span></span>
-<span id="cb30-87"><a href="#cb30-87" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb30-88"><a href="#cb30-88" aria-hidden="true" tabindex="-1"></a><span class="in">#Joining expression data with gene annotations</span></span>
-<span id="cb30-89"><a href="#cb30-89" aria-hidden="true" tabindex="-1"></a><span class="in">expr_annotated &lt;- expr_df %&gt;%</span></span>
-<span id="cb30-90"><a href="#cb30-90" aria-hidden="true" tabindex="-1"></a><span class="in">  left_join(mapped_annot, by = c(&quot;probe_clean&quot; = &quot;PROBEID&quot;))</span></span>
-<span id="cb30-91"><a href="#cb30-91" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb30-92"><a href="#cb30-92" aria-hidden="true" tabindex="-1"></a><span class="in"># Removing probes that couldn&#39;t be mapped</span></span>
-<span id="cb30-93"><a href="#cb30-93" aria-hidden="true" tabindex="-1"></a><span class="in">expr_annotated &lt;- expr_annotated %&gt;%</span></span>
-<span id="cb30-94"><a href="#cb30-94" aria-hidden="true" tabindex="-1"></a><span class="in">  filter(!is.na(SYMBOL))</span></span>
-<span id="cb30-95"><a href="#cb30-95" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb30-96"><a href="#cb30-96" aria-hidden="true" tabindex="-1"></a><span class="in"># Selecting one probe per gene</span></span>
-<span id="cb30-97"><a href="#cb30-97" aria-hidden="true" tabindex="-1"></a><span class="in">expr_gene &lt;- expr_annotated %&gt;%</span></span>
-<span id="cb30-98"><a href="#cb30-98" aria-hidden="true" tabindex="-1"></a><span class="in">  group_by(SYMBOL) %&gt;%</span></span>
-<span id="cb30-99"><a href="#cb30-99" aria-hidden="true" tabindex="-1"></a><span class="in">  slice_max(order_by = rowMeans(across(where(is.numeric))), n = 1, with_ties = FALSE) %&gt;%</span></span>
-<span id="cb30-100"><a href="#cb30-100" aria-hidden="true" tabindex="-1"></a><span class="in">  ungroup()</span></span>
-<span id="cb30-101"><a href="#cb30-101" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb30-102"><a href="#cb30-102" aria-hidden="true" tabindex="-1"></a><span class="in">#Finalizing expression matrix</span></span>
-<span id="cb30-103"><a href="#cb30-103" aria-hidden="true" tabindex="-1"></a><span class="in">expr_final &lt;- expr_gene %&gt;%</span></span>
-<span id="cb30-104"><a href="#cb30-104" aria-hidden="true" tabindex="-1"></a><span class="in">  dplyr::select(-probeset, -probe_clean, -GENENAME, -ENSEMBL) %&gt;%</span></span>
-<span id="cb30-105"><a href="#cb30-105" aria-hidden="true" tabindex="-1"></a><span class="in">  column_to_rownames(&quot;SYMBOL&quot;)</span></span>
-<span id="cb30-106"><a href="#cb30-106" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb30-107"><a href="#cb30-107" aria-hidden="true" tabindex="-1"></a><span class="in">#Overwrites expr_df with final cleaned data</span></span>
-<span id="cb30-108"><a href="#cb30-108" aria-hidden="true" tabindex="-1"></a><span class="in">expr_df &lt;- expr_final</span></span>
-<span id="cb30-109"><a href="#cb30-109" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb30-110"><a href="#cb30-110" aria-hidden="true" tabindex="-1"></a><span class="in">dim(expr_df)</span></span>
-<span id="cb30-111"><a href="#cb30-111" aria-hidden="true" tabindex="-1"></a><span class="in">head(expr_df)[, 1:5]</span></span>
-<span id="cb30-112"><a href="#cb30-112" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb30-113"><a href="#cb30-113" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb30-114"><a href="#cb30-114" aria-hidden="true" tabindex="-1"></a>The expression matrix originally contained 92,343 probeset IDs, each</span>
-<span id="cb30-115"><a href="#cb30-115" aria-hidden="true" tabindex="-1"></a>representing individual probes from the microarray platform. To convert</span>
-<span id="cb30-116"><a href="#cb30-116" aria-hidden="true" tabindex="-1"></a>this data into a more interpretable gene-level matrix, we performed the</span>
-<span id="cb30-117"><a href="#cb30-117" aria-hidden="true" tabindex="-1"></a>following steps:</span>
-<span id="cb30-118"><a href="#cb30-118" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb30-119"><a href="#cb30-119" aria-hidden="true" tabindex="-1"></a><span class="ss">1.  </span>**Probe ID cleaning**: We removed the <span class="in">`:1`</span> suffix from each probe ID</span>
-<span id="cb30-120"><a href="#cb30-120" aria-hidden="true" tabindex="-1"></a>    to match the annotation database.</span>
-<span id="cb30-121"><a href="#cb30-121" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb30-122"><a href="#cb30-122" aria-hidden="true" tabindex="-1"></a><span class="ss">2.  </span>**Annotation mapping**: Using the <span class="in">`hta20transcriptcluster.db`</span></span>
-<span id="cb30-123"><a href="#cb30-123" aria-hidden="true" tabindex="-1"></a>    Bioconductor annotation package, we mapped each cleaned probe ID to</span>
-<span id="cb30-124"><a href="#cb30-124" aria-hidden="true" tabindex="-1"></a>    its corresponding gene symbol (<span class="in">`SYMBOL`</span>), gene name (<span class="in">`GENENAME`</span>),</span>
-<span id="cb30-125"><a href="#cb30-125" aria-hidden="true" tabindex="-1"></a>    and Ensembl ID.</span>
-<span id="cb30-126"><a href="#cb30-126" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb30-127"><a href="#cb30-127" aria-hidden="true" tabindex="-1"></a><span class="ss">3.  </span>**Filtering**: Probes that could not be mapped to any known gene</span>
-<span id="cb30-128"><a href="#cb30-128" aria-hidden="true" tabindex="-1"></a>    symbol were removed.</span>
-<span id="cb30-129"><a href="#cb30-129" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb30-130"><a href="#cb30-130" aria-hidden="true" tabindex="-1"></a><span class="ss">4.  </span>**Aggregation**: For genes that had multiple probes, we retained</span>
-<span id="cb30-131"><a href="#cb30-131" aria-hidden="true" tabindex="-1"></a>    only the probe with the **highest average expression across all</span>
-<span id="cb30-132"><a href="#cb30-132" aria-hidden="true" tabindex="-1"></a>    samples**. This ensures we keep the most representative probe for</span>
-<span id="cb30-133"><a href="#cb30-133" aria-hidden="true" tabindex="-1"></a>    each gene and avoids duplication in downstream analyses.</span>
-<span id="cb30-134"><a href="#cb30-134" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb30-135"><a href="#cb30-135" aria-hidden="true" tabindex="-1"></a><span class="ss">5.  </span>**Final expression matrix**: The resulting matrix has gene symbols</span>
-<span id="cb30-136"><a href="#cb30-136" aria-hidden="true" tabindex="-1"></a>    as row names and retains all 1,820 samples as columns. We stored</span>
-<span id="cb30-137"><a href="#cb30-137" aria-hidden="true" tabindex="-1"></a>    this final gene-level matrix as <span class="in">`expr_df`</span>, which is used in all</span>
-<span id="cb30-138"><a href="#cb30-138" aria-hidden="true" tabindex="-1"></a>    subsequent analyses.</span>
-<span id="cb30-139"><a href="#cb30-139" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb30-140"><a href="#cb30-140" aria-hidden="true" tabindex="-1"></a>As a result, the number of features was reduced from 92,343 to</span>
-<span id="cb30-141"><a href="#cb30-141" aria-hidden="true" tabindex="-1"></a>22,072—representing unique genes suitable for differential expression</span>
-<span id="cb30-142"><a href="#cb30-142" aria-hidden="true" tabindex="-1"></a>and machine learning tasks.</span>
-<span id="cb30-143"><a href="#cb30-143" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb30-144"><a href="#cb30-144" aria-hidden="true" tabindex="-1"></a><span class="fu">## 2.2 Phenotypic data</span></span>
-<span id="cb30-145"><a href="#cb30-145" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb30-148"><a href="#cb30-148" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
-<span id="cb30-149"><a href="#cb30-149" aria-hidden="true" tabindex="-1"></a><span class="co"># 2. Download phenotypic data using GEOquery</span></span>
-<span id="cb30-150"><a href="#cb30-150" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(GEOquery)</span>
-<span id="cb30-151"><a href="#cb30-151" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb30-152"><a href="#cb30-152" aria-hidden="true" tabindex="-1"></a>gse88884 <span class="ot">&lt;-</span> <span class="fu">getGEO</span>(<span class="st">&quot;GSE88884&quot;</span>)</span>
-<span id="cb30-153"><a href="#cb30-153" aria-hidden="true" tabindex="-1"></a>gse88884 <span class="ot">&lt;-</span> gse88884<span class="sc">$</span>GSE88884_series_matrix.txt.gz</span>
-<span id="cb30-154"><a href="#cb30-154" aria-hidden="true" tabindex="-1"></a>pheno_gse88884 <span class="ot">&lt;-</span> <span class="fu">pData</span>(gse88884)</span>
-<span id="cb30-155"><a href="#cb30-155" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb30-156"><a href="#cb30-156" aria-hidden="true" tabindex="-1"></a><span class="fu">colnames</span>(pheno_gse88884)</span>
-<span id="cb30-157"><a href="#cb30-157" aria-hidden="true" tabindex="-1"></a><span class="co">#head(pheno_gse88884$supplementary_file)</span></span>
-<span id="cb30-158"><a href="#cb30-158" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb30-159"><a href="#cb30-159" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb30-160"><a href="#cb30-160" aria-hidden="true" tabindex="-1"></a><span class="fu">### Patients Mapping</span></span>
-<span id="cb30-161"><a href="#cb30-161" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb30-162"><a href="#cb30-162" aria-hidden="true" tabindex="-1"></a>We extracted the mapping between sample accession numbers (GSM IDs) and</span>
-<span id="cb30-163"><a href="#cb30-163" aria-hidden="true" tabindex="-1"></a>CEL filenames from the supplementary_file column in the phenotypic data.</span>
-<span id="cb30-164"><a href="#cb30-164" aria-hidden="true" tabindex="-1"></a>The column names of the gene expression matrix were replaced with their</span>
-<span id="cb30-165"><a href="#cb30-165" aria-hidden="true" tabindex="-1"></a>corresponding GSM IDs to facilitate downstream analysis and</span>
-<span id="cb30-166"><a href="#cb30-166" aria-hidden="true" tabindex="-1"></a>interpretation.</span>
-<span id="cb30-167"><a href="#cb30-167" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb30-170"><a href="#cb30-170" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
-<span id="cb30-171"><a href="#cb30-171" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(dplyr)</span>
-<span id="cb30-172"><a href="#cb30-172" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb30-173"><a href="#cb30-173" aria-hidden="true" tabindex="-1"></a><span class="co"># 1. Extract supplementary file column</span></span>
-<span id="cb30-174"><a href="#cb30-174" aria-hidden="true" tabindex="-1"></a>pheno_clean <span class="ot">&lt;-</span> pheno_gse88884 <span class="sc">%&gt;%</span></span>
-<span id="cb30-175"><a href="#cb30-175" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(</span>
-<span id="cb30-176"><a href="#cb30-176" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Extract GSM accession</span></span>
-<span id="cb30-177"><a href="#cb30-177" aria-hidden="true" tabindex="-1"></a>    <span class="at">GSM_ID =</span> geo_accession,</span>
-<span id="cb30-178"><a href="#cb30-178" aria-hidden="true" tabindex="-1"></a>    </span>
-<span id="cb30-179"><a href="#cb30-179" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Extract CEL filename from supplementary_file column</span></span>
-<span id="cb30-180"><a href="#cb30-180" aria-hidden="true" tabindex="-1"></a>    <span class="at">cel_filename =</span> <span class="fu">str_extract</span>(supplementary_file, <span class="st">&quot;(?&lt;=_)[A-Z0-9]+</span><span class="sc">\\</span><span class="st">.CEL&quot;</span>)</span>
-<span id="cb30-181"><a href="#cb30-181" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">%&gt;%</span></span>
-<span id="cb30-182"><a href="#cb30-182" aria-hidden="true" tabindex="-1"></a>  dplyr<span class="sc">::</span><span class="fu">select</span>(GSM_ID, cel_filename, source_name_ch1, <span class="fu">contains</span>(<span class="st">&quot;characteristics_ch1&quot;</span>))</span>
-<span id="cb30-183"><a href="#cb30-183" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb30-184"><a href="#cb30-184" aria-hidden="true" tabindex="-1"></a><span class="co"># Quick check</span></span>
-<span id="cb30-185"><a href="#cb30-185" aria-hidden="true" tabindex="-1"></a><span class="fu">head</span>(pheno_clean[, <span class="dv">1</span><span class="sc">:</span><span class="dv">3</span>])</span>
-<span id="cb30-186"><a href="#cb30-186" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb30-187"><a href="#cb30-187" aria-hidden="true" tabindex="-1"></a><span class="co"># Keep only samples present in expression data</span></span>
-<span id="cb30-188"><a href="#cb30-188" aria-hidden="true" tabindex="-1"></a>matched_pheno <span class="ot">&lt;-</span> pheno_clean <span class="sc">%&gt;%</span></span>
-<span id="cb30-189"><a href="#cb30-189" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(cel_filename <span class="sc">%in%</span> <span class="fu">colnames</span>(expr_df))</span>
-<span id="cb30-190"><a href="#cb30-190" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb30-191"><a href="#cb30-191" aria-hidden="true" tabindex="-1"></a><span class="co"># Filter expression data</span></span>
-<span id="cb30-192"><a href="#cb30-192" aria-hidden="true" tabindex="-1"></a>expr_df_matched <span class="ot">&lt;-</span> expr_df[, matched_pheno<span class="sc">$</span>cel_filename]</span>
-<span id="cb30-193"><a href="#cb30-193" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb30-194"><a href="#cb30-194" aria-hidden="true" tabindex="-1"></a>name_map <span class="ot">&lt;-</span> <span class="fu">setNames</span>(matched_pheno<span class="sc">$</span>GSM_ID, matched_pheno<span class="sc">$</span>cel_filename)</span>
-<span id="cb30-195"><a href="#cb30-195" aria-hidden="true" tabindex="-1"></a><span class="fu">colnames</span>(expr_df_matched) <span class="ot">&lt;-</span> name_map[<span class="fu">colnames</span>(expr_df_matched)]</span>
-<span id="cb30-196"><a href="#cb30-196" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb30-197"><a href="#cb30-197" aria-hidden="true" tabindex="-1"></a><span class="fu">dim</span>(expr_df_matched)</span>
-<span id="cb30-198"><a href="#cb30-198" aria-hidden="true" tabindex="-1"></a><span class="fu">head</span>(expr_df_matched)[, <span class="dv">0</span><span class="sc">:</span><span class="dv">5</span>]</span>
-<span id="cb30-199"><a href="#cb30-199" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb30-200"><a href="#cb30-200" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb30-201"><a href="#cb30-201" aria-hidden="true" tabindex="-1"></a><span class="fu">### Data cleaning</span></span>
-<span id="cb30-202"><a href="#cb30-202" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb30-203"><a href="#cb30-203" aria-hidden="true" tabindex="-1"></a>In this section, we cleaned and processed the clinical (phenotypic) data</span>
-<span id="cb30-204"><a href="#cb30-204" aria-hidden="true" tabindex="-1"></a>from the GSE88884 dataset to prepare it for exploratory data analysis</span>
-<span id="cb30-205"><a href="#cb30-205" aria-hidden="true" tabindex="-1"></a>and predictive modelling.</span>
-<span id="cb30-206"><a href="#cb30-206" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb30-207"><a href="#cb30-207" aria-hidden="true" tabindex="-1"></a><span class="ss">1.  </span>**Variable Selection and Renaming** We first selected a subset of</span>
-<span id="cb30-208"><a href="#cb30-208" aria-hidden="true" tabindex="-1"></a>    relevant clinical variables from the original phenotype data,</span>
-<span id="cb30-209"><a href="#cb30-209" aria-hidden="true" tabindex="-1"></a>    including demographic variables (sex, age, race, region), disease</span>
-<span id="cb30-210"><a href="#cb30-210" aria-hidden="true" tabindex="-1"></a>    activity score (SLEDAI), complement levels (C3 and C4), anti-dsDNA</span>
-<span id="cb30-211"><a href="#cb30-211" aria-hidden="true" tabindex="-1"></a>    antibody measurements, and treatment group. We also renamed the</span>
-<span id="cb30-212"><a href="#cb30-212" aria-hidden="true" tabindex="-1"></a>    columns for clarity and consistency.</span>
-<span id="cb30-213"><a href="#cb30-213" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb30-214"><a href="#cb30-214" aria-hidden="true" tabindex="-1"></a><span class="ss">2.  </span>**Simplifying Group Labels** The <span class="in">`group`</span> column originally contained</span>
-<span id="cb30-215"><a href="#cb30-215" aria-hidden="true" tabindex="-1"></a>    long text labels. We simplified this column to only retain two</span>
-<span id="cb30-216"><a href="#cb30-216" aria-hidden="true" tabindex="-1"></a>    categories: <span class="in">`&quot;SLE&quot;`</span> and <span class="in">`&quot;Normal&quot;`</span> (healthy controls), which will be</span>
-<span id="cb30-217"><a href="#cb30-217" aria-hidden="true" tabindex="-1"></a>    used as the primary outcome variable in the analysis.</span>
-<span id="cb30-218"><a href="#cb30-218" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb30-219"><a href="#cb30-219" aria-hidden="true" tabindex="-1"></a><span class="ss">3.  </span>**Cleaning Column Values** Many columns contained descriptive</span>
-<span id="cb30-220"><a href="#cb30-220" aria-hidden="true" tabindex="-1"></a>    prefixes within their values (e.g. <span class="in">`&quot;age_at_baseline: 43.5&quot;`</span>,</span>
-<span id="cb30-221"><a href="#cb30-221" aria-hidden="true" tabindex="-1"></a>    <span class="in">`&quot;Sex: Female&quot;`</span>). We removed these prefixes using <span class="in">`str_remove()`</span> and</span>
-<span id="cb30-222"><a href="#cb30-222" aria-hidden="true" tabindex="-1"></a>    <span class="in">`str_replace()`</span> functions to retain only the useful information</span>
-<span id="cb30-223"><a href="#cb30-223" aria-hidden="true" tabindex="-1"></a>    (e.g. <span class="in">`&quot;43.5&quot;`</span>, <span class="in">`&quot;Female&quot;`</span>). For numeric columns (age, anti-dsDNA</span>
-<span id="cb30-224"><a href="#cb30-224" aria-hidden="true" tabindex="-1"></a>    titer, C3, C4, SLEDAI score), we converted them to numeric type</span>
-<span id="cb30-225"><a href="#cb30-225" aria-hidden="true" tabindex="-1"></a>    after removing the prefixes.</span>
-<span id="cb30-226"><a href="#cb30-226" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb30-227"><a href="#cb30-227" aria-hidden="true" tabindex="-1"></a><span class="ss">4.  </span>**Handling Missing Values** Missing values in this dataset were</span>
-<span id="cb30-228"><a href="#cb30-228" aria-hidden="true" tabindex="-1"></a>    recorded as <span class="in">`&quot;--&quot;`</span>. We replaced these with <span class="in">`NA`</span> using <span class="in">`na_if()`</span> to</span>
-<span id="cb30-229"><a href="#cb30-229" aria-hidden="true" tabindex="-1"></a>    ensure they are correctly recognised as missing data in downstream</span>
-<span id="cb30-230"><a href="#cb30-230" aria-hidden="true" tabindex="-1"></a>    analyses.</span>
-<span id="cb30-231"><a href="#cb30-231" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb30-232"><a href="#cb30-232" aria-hidden="true" tabindex="-1"></a><span class="ss">5.  </span>**Important Clinical Thresholds** During cleaning, we removed long</span>
-<span id="cb30-233"><a href="#cb30-233" aria-hidden="true" tabindex="-1"></a>    descriptive texts that described the clinical thresholds used for</span>
-<span id="cb30-234"><a href="#cb30-234" aria-hidden="true" tabindex="-1"></a>    categorising certain variables. These descriptions are important to</span>
-<span id="cb30-235"><a href="#cb30-235" aria-hidden="true" tabindex="-1"></a>    interpret the clinical meaning of categorical variables, so we</span>
-<span id="cb30-236"><a href="#cb30-236" aria-hidden="true" tabindex="-1"></a>    explicitly report them here for reference:</span>
-<span id="cb30-237"><a href="#cb30-237" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb30-238"><a href="#cb30-238" aria-hidden="true" tabindex="-1"></a>    **Anti-dsDNA antibody status (`adna_at_baseline`):** *Negative* if</span>
-<span id="cb30-239"><a href="#cb30-239" aria-hidden="true" tabindex="-1"></a>    titer <span class="sc">\&lt;</span> 30 IU/mL; *Positive* if titer ≥ 30 IU/mL.</span>
-<span id="cb30-240"><a href="#cb30-240" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb30-241"><a href="#cb30-241" aria-hidden="true" tabindex="-1"></a>    **Complement C3 status (`c3_status`):** *Low* if C3 <span class="sc">\&lt;</span> 0.9 g/L;</span>
-<span id="cb30-242"><a href="#cb30-242" aria-hidden="true" tabindex="-1"></a>    *Normal* if C3 ≥ 0.9 g/L; *High* otherwise.</span>
-<span id="cb30-243"><a href="#cb30-243" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb30-244"><a href="#cb30-244" aria-hidden="true" tabindex="-1"></a>    **Complement C4 status (`c4_status`):** *Low* if C4 <span class="sc">\&lt;</span> 0.1 g/L;</span>
-<span id="cb30-245"><a href="#cb30-245" aria-hidden="true" tabindex="-1"></a>    *Normal* if C4 ≥ 0.1 g/L; *High* otherwise.</span>
-<span id="cb30-246"><a href="#cb30-246" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb30-249"><a href="#cb30-249" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
-<span id="cb30-250"><a href="#cb30-250" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(dplyr)</span>
-<span id="cb30-251"><a href="#cb30-251" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb30-252"><a href="#cb30-252" aria-hidden="true" tabindex="-1"></a>pheno_clean <span class="ot">&lt;-</span> pheno_clean <span class="sc">%&gt;%</span></span>
-<span id="cb30-253"><a href="#cb30-253" aria-hidden="true" tabindex="-1"></a>   dplyr<span class="sc">::</span><span class="fu">select</span>(</span>
-<span id="cb30-254"><a href="#cb30-254" aria-hidden="true" tabindex="-1"></a>    <span class="at">sledai_at_baseline =</span> characteristics_ch1<span class="fl">.8</span>,</span>
-<span id="cb30-255"><a href="#cb30-255" aria-hidden="true" tabindex="-1"></a>    <span class="at">group =</span> characteristics_ch1<span class="fl">.2</span>,</span>
-<span id="cb30-256"><a href="#cb30-256" aria-hidden="true" tabindex="-1"></a>    <span class="at">age_at_baseline =</span> characteristics_ch1<span class="fl">.6</span>,</span>
-<span id="cb30-257"><a href="#cb30-257" aria-hidden="true" tabindex="-1"></a>    <span class="at">sex =</span> characteristics_ch1<span class="fl">.5</span>,</span>
-<span id="cb30-258"><a href="#cb30-258" aria-hidden="true" tabindex="-1"></a>    <span class="at">race =</span> characteristics_ch1<span class="fl">.4</span>,</span>
-<span id="cb30-259"><a href="#cb30-259" aria-hidden="true" tabindex="-1"></a>    <span class="at">region =</span> characteristics_ch1<span class="fl">.7</span>,</span>
-<span id="cb30-260"><a href="#cb30-260" aria-hidden="true" tabindex="-1"></a>    <span class="at">batch =</span> characteristics_ch1<span class="fl">.3</span>,</span>
-<span id="cb30-261"><a href="#cb30-261" aria-hidden="true" tabindex="-1"></a>    <span class="at">time =</span> characteristics_ch1<span class="fl">.1</span>,</span>
-<span id="cb30-262"><a href="#cb30-262" aria-hidden="true" tabindex="-1"></a>    <span class="at">adna_at_baseline =</span> characteristics_ch1<span class="fl">.9</span>,</span>
-<span id="cb30-263"><a href="#cb30-263" aria-hidden="true" tabindex="-1"></a>    <span class="at">antidsdna_at_baseline =</span> characteristics_ch1<span class="fl">.10</span>,</span>
-<span id="cb30-264"><a href="#cb30-264" aria-hidden="true" tabindex="-1"></a>    <span class="at">c3_status =</span> characteristics_ch1<span class="fl">.11</span>,</span>
-<span id="cb30-265"><a href="#cb30-265" aria-hidden="true" tabindex="-1"></a>    <span class="at">c3 =</span> characteristics_ch1<span class="fl">.12</span>,</span>
-<span id="cb30-266"><a href="#cb30-266" aria-hidden="true" tabindex="-1"></a>    <span class="at">c4_status =</span> characteristics_ch1<span class="fl">.13</span>,</span>
-<span id="cb30-267"><a href="#cb30-267" aria-hidden="true" tabindex="-1"></a>    <span class="at">c4 =</span> characteristics_ch1<span class="fl">.14</span>,</span>
-<span id="cb30-268"><a href="#cb30-268" aria-hidden="true" tabindex="-1"></a>    cel_filename</span>
-<span id="cb30-269"><a href="#cb30-269" aria-hidden="true" tabindex="-1"></a>  )</span>
-<span id="cb30-270"><a href="#cb30-270" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb30-271"><a href="#cb30-271" aria-hidden="true" tabindex="-1"></a><span class="co"># 1. Clean &#39;group&#39; column to only keep &quot;SLE&quot; or &quot;Healthy&quot;</span></span>
-<span id="cb30-272"><a href="#cb30-272" aria-hidden="true" tabindex="-1"></a>pheno_clean <span class="ot">&lt;-</span> pheno_clean <span class="sc">%&gt;%</span></span>
-<span id="cb30-273"><a href="#cb30-273" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(</span>
-<span id="cb30-274"><a href="#cb30-274" aria-hidden="true" tabindex="-1"></a>    <span class="at">group =</span> <span class="fu">case_when</span>(</span>
-<span id="cb30-275"><a href="#cb30-275" aria-hidden="true" tabindex="-1"></a>      <span class="fu">str_detect</span>(group, <span class="st">&quot;SLE&quot;</span>) <span class="sc">~</span> <span class="st">&quot;SLE&quot;</span>,</span>
-<span id="cb30-276"><a href="#cb30-276" aria-hidden="true" tabindex="-1"></a>      <span class="fu">str_detect</span>(group, <span class="st">&quot;Normal&quot;</span>) <span class="sc">~</span> <span class="st">&quot;Normal&quot;</span>,</span>
-<span id="cb30-277"><a href="#cb30-277" aria-hidden="true" tabindex="-1"></a>      <span class="cn">TRUE</span> <span class="sc">~</span> <span class="cn">NA_character_</span></span>
-<span id="cb30-278"><a href="#cb30-278" aria-hidden="true" tabindex="-1"></a>    )</span>
-<span id="cb30-279"><a href="#cb30-279" aria-hidden="true" tabindex="-1"></a>  )</span>
-<span id="cb30-280"><a href="#cb30-280" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb30-281"><a href="#cb30-281" aria-hidden="true" tabindex="-1"></a><span class="co"># 2. Clean numeric and categorical columns (remove prefix)</span></span>
-<span id="cb30-282"><a href="#cb30-282" aria-hidden="true" tabindex="-1"></a>pheno_clean <span class="ot">&lt;-</span> pheno_clean <span class="sc">%&gt;%</span></span>
-<span id="cb30-283"><a href="#cb30-283" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(</span>
-<span id="cb30-284"><a href="#cb30-284" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Age</span></span>
-<span id="cb30-285"><a href="#cb30-285" aria-hidden="true" tabindex="-1"></a>    <span class="at">age_at_baseline =</span> <span class="fu">str_remove</span>(age_at_baseline, <span class="st">&quot;age_at_baseline: &quot;</span>),</span>
-<span id="cb30-286"><a href="#cb30-286" aria-hidden="true" tabindex="-1"></a>    <span class="at">age_at_baseline =</span> <span class="fu">na_if</span>(age_at_baseline, <span class="st">&quot;--&quot;</span>),</span>
-<span id="cb30-287"><a href="#cb30-287" aria-hidden="true" tabindex="-1"></a>    <span class="at">age_at_baseline =</span> <span class="fu">as.numeric</span>(age_at_baseline),</span>
-<span id="cb30-288"><a href="#cb30-288" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Sex</span></span>
-<span id="cb30-289"><a href="#cb30-289" aria-hidden="true" tabindex="-1"></a>    <span class="at">sex =</span> <span class="fu">str_remove</span>(sex, <span class="st">&quot;Sex: &quot;</span>),</span>
-<span id="cb30-290"><a href="#cb30-290" aria-hidden="true" tabindex="-1"></a>    <span class="at">sex =</span> <span class="fu">na_if</span>(sex, <span class="st">&quot;--&quot;</span>),</span>
-<span id="cb30-291"><a href="#cb30-291" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Race</span></span>
-<span id="cb30-292"><a href="#cb30-292" aria-hidden="true" tabindex="-1"></a>    <span class="at">race =</span> <span class="fu">str_remove</span>(race, <span class="st">&quot;race: &quot;</span>),</span>
-<span id="cb30-293"><a href="#cb30-293" aria-hidden="true" tabindex="-1"></a>    <span class="at">race =</span> <span class="fu">na_if</span>(race, <span class="st">&quot;--&quot;</span>),</span>
-<span id="cb30-294"><a href="#cb30-294" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Region</span></span>
-<span id="cb30-295"><a href="#cb30-295" aria-hidden="true" tabindex="-1"></a>    <span class="at">region =</span> <span class="fu">str_remove</span>(region, <span class="st">&quot;region: &quot;</span>),</span>
-<span id="cb30-296"><a href="#cb30-296" aria-hidden="true" tabindex="-1"></a>    <span class="at">region =</span> <span class="fu">na_if</span>(region, <span class="st">&quot;--&quot;</span>),</span>
-<span id="cb30-297"><a href="#cb30-297" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Batch</span></span>
-<span id="cb30-298"><a href="#cb30-298" aria-hidden="true" tabindex="-1"></a>    <span class="at">batch =</span> <span class="fu">str_remove</span>(batch, <span class="st">&quot;batch: &quot;</span>),</span>
-<span id="cb30-299"><a href="#cb30-299" aria-hidden="true" tabindex="-1"></a>    <span class="at">batch  =</span> <span class="fu">na_if</span>(batch, <span class="st">&quot;--&quot;</span>),</span>
-<span id="cb30-300"><a href="#cb30-300" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Time</span></span>
-<span id="cb30-301"><a href="#cb30-301" aria-hidden="true" tabindex="-1"></a>    <span class="at">time =</span> <span class="fu">str_remove</span>(time, <span class="st">&quot;time: &quot;</span>),</span>
-<span id="cb30-302"><a href="#cb30-302" aria-hidden="true" tabindex="-1"></a>    <span class="at">time =</span> <span class="fu">na_if</span>(time, <span class="st">&quot;--&quot;</span>),</span>
-<span id="cb30-303"><a href="#cb30-303" aria-hidden="true" tabindex="-1"></a>    <span class="co"># adna</span></span>
-<span id="cb30-304"><a href="#cb30-304" aria-hidden="true" tabindex="-1"></a>    <span class="at">adna_at_baseline =</span> <span class="fu">str_replace</span>(adna_at_baseline, <span class="st">&quot;^.*: &quot;</span>, <span class="st">&quot;&quot;</span>),  <span class="co"># Remove everything before and including last colon</span></span>
-<span id="cb30-305"><a href="#cb30-305" aria-hidden="true" tabindex="-1"></a>    <span class="at">adna_at_baseline =</span> <span class="fu">na_if</span>(adna_at_baseline, <span class="st">&quot;--&quot;</span>),</span>
-<span id="cb30-306"><a href="#cb30-306" aria-hidden="true" tabindex="-1"></a>    <span class="co"># antidsna </span></span>
-<span id="cb30-307"><a href="#cb30-307" aria-hidden="true" tabindex="-1"></a>    <span class="at">antidsdna_at_baseline =</span> <span class="fu">str_remove</span>(antidsdna_at_baseline, <span class="st">&quot;antidsdna_at_baseline </span><span class="sc">\\</span><span class="st">(iu</span><span class="sc">\\</span><span class="st">): &quot;</span>),</span>
-<span id="cb30-308"><a href="#cb30-308" aria-hidden="true" tabindex="-1"></a>    <span class="at">antidsdna_at_baseline =</span> <span class="fu">na_if</span>(antidsdna_at_baseline, <span class="st">&quot;--&quot;</span>),</span>
-<span id="cb30-309"><a href="#cb30-309" aria-hidden="true" tabindex="-1"></a>    <span class="at">antidsdna_at_baseline =</span> <span class="fu">as.numeric</span>(antidsdna_at_baseline),</span>
-<span id="cb30-310"><a href="#cb30-310" aria-hidden="true" tabindex="-1"></a>    <span class="co"># c3_status</span></span>
-<span id="cb30-311"><a href="#cb30-311" aria-hidden="true" tabindex="-1"></a>    <span class="at">c3_status =</span> <span class="fu">str_remove</span>(c3_status, <span class="st">&quot;c3base </span><span class="sc">\\</span><span class="st">(low &lt; 0.9 g/l; normal &gt;= 0.9 g/l; h = high</span><span class="sc">\\</span><span class="st">): &quot;</span>),</span>
-<span id="cb30-312"><a href="#cb30-312" aria-hidden="true" tabindex="-1"></a>    <span class="at">c3_status =</span> <span class="fu">na_if</span>(c3_status, <span class="st">&quot;--&quot;</span>),</span>
-<span id="cb30-313"><a href="#cb30-313" aria-hidden="true" tabindex="-1"></a>    <span class="co"># c3</span></span>
-<span id="cb30-314"><a href="#cb30-314" aria-hidden="true" tabindex="-1"></a>    <span class="at">c3 =</span> <span class="fu">str_remove</span>(c3, <span class="st">&quot;c3_at_baseline </span><span class="sc">\\</span><span class="st">(g/l</span><span class="sc">\\</span><span class="st">): &quot;</span>),</span>
-<span id="cb30-315"><a href="#cb30-315" aria-hidden="true" tabindex="-1"></a>    <span class="at">c3 =</span> <span class="fu">na_if</span>(c3, <span class="st">&quot;--&quot;</span>),</span>
-<span id="cb30-316"><a href="#cb30-316" aria-hidden="true" tabindex="-1"></a>    <span class="at">c3 =</span> <span class="fu">as.numeric</span>(c3),</span>
-<span id="cb30-317"><a href="#cb30-317" aria-hidden="true" tabindex="-1"></a>    <span class="co"># c4</span></span>
-<span id="cb30-318"><a href="#cb30-318" aria-hidden="true" tabindex="-1"></a>    <span class="at">c4_status =</span> <span class="fu">str_remove</span>(c4_status, <span class="st">&quot;c4base </span><span class="sc">\\</span><span class="st">(low &lt; 0.1 g/l; normal &gt;= 0.1 g/l; h = high</span><span class="sc">\\</span><span class="st">): &quot;</span>),</span>
-<span id="cb30-319"><a href="#cb30-319" aria-hidden="true" tabindex="-1"></a>    <span class="at">c4_status =</span> <span class="fu">na_if</span>(c4_status, <span class="st">&quot;--&quot;</span>),</span>
-<span id="cb30-320"><a href="#cb30-320" aria-hidden="true" tabindex="-1"></a>    <span class="co"># c4</span></span>
-<span id="cb30-321"><a href="#cb30-321" aria-hidden="true" tabindex="-1"></a>    <span class="at">c4 =</span> <span class="fu">str_remove</span>(c4, <span class="st">&quot;c4_at_baseline </span><span class="sc">\\</span><span class="st">(g/l</span><span class="sc">\\</span><span class="st">): &quot;</span>),</span>
-<span id="cb30-322"><a href="#cb30-322" aria-hidden="true" tabindex="-1"></a>    <span class="at">c4 =</span> <span class="fu">na_if</span>(c4, <span class="st">&quot;--&quot;</span>),</span>
-<span id="cb30-323"><a href="#cb30-323" aria-hidden="true" tabindex="-1"></a>    <span class="at">c4 =</span> <span class="fu">as.numeric</span>(c4),</span>
-<span id="cb30-324"><a href="#cb30-324" aria-hidden="true" tabindex="-1"></a>    <span class="co"># sledai</span></span>
-<span id="cb30-325"><a href="#cb30-325" aria-hidden="true" tabindex="-1"></a>    <span class="at">sledai_at_baseline =</span> <span class="fu">str_remove</span>(sledai_at_baseline, <span class="st">&quot;sledai_at_baseline: &quot;</span>),</span>
-<span id="cb30-326"><a href="#cb30-326" aria-hidden="true" tabindex="-1"></a>    <span class="at">sledai_at_baseline =</span> <span class="fu">na_if</span>(sledai_at_baseline, <span class="st">&quot;--&quot;</span>),</span>
-<span id="cb30-327"><a href="#cb30-327" aria-hidden="true" tabindex="-1"></a>    <span class="at">sledai_at_baseline =</span> <span class="fu">as.numeric</span>(sledai_at_baseline)</span>
-<span id="cb30-328"><a href="#cb30-328" aria-hidden="true" tabindex="-1"></a>  )</span>
-<span id="cb30-329"><a href="#cb30-329" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb30-330"><a href="#cb30-330" aria-hidden="true" tabindex="-1"></a><span class="fu">colnames</span>(pheno_clean)</span>
-<span id="cb30-331"><a href="#cb30-331" aria-hidden="true" tabindex="-1"></a><span class="fu">head</span>(pheno_clean)</span>
-<span id="cb30-332"><a href="#cb30-332" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb30-333"><a href="#cb30-333" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb30-334"><a href="#cb30-334" aria-hidden="true" tabindex="-1"></a><span class="fu"># 3 Data Overview</span></span>
-<span id="cb30-335"><a href="#cb30-335" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb30-336"><a href="#cb30-336" aria-hidden="true" tabindex="-1"></a>In this analysis, we used two cleaned datasets derived from the GSE88884</span>
-<span id="cb30-337"><a href="#cb30-337" aria-hidden="true" tabindex="-1"></a>study, which investigated gene expression profiles and clinical</span>
-<span id="cb30-338"><a href="#cb30-338" aria-hidden="true" tabindex="-1"></a>characteristics of patients with Systemic Lupus Erythematosus (SLE) and</span>
-<span id="cb30-339"><a href="#cb30-339" aria-hidden="true" tabindex="-1"></a>healthy controls.</span>
-<span id="cb30-340"><a href="#cb30-340" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb30-341"><a href="#cb30-341" aria-hidden="true" tabindex="-1"></a><span class="fu">## 2.1 Gene Expression data(`expr_df_matched`)</span></span>
-<span id="cb30-342"><a href="#cb30-342" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb30-343"><a href="#cb30-343" aria-hidden="true" tabindex="-1"></a>This dataset contains normalized gene expression values obtained from</span>
-<span id="cb30-344"><a href="#cb30-344" aria-hidden="true" tabindex="-1"></a>pre-processed microarray data. It includes **92,343 probeset IDs</span>
-<span id="cb30-345"><a href="#cb30-345" aria-hidden="true" tabindex="-1"></a>(features)** measured across **1,820 patient samples**. Each row</span>
-<span id="cb30-346"><a href="#cb30-346" aria-hidden="true" tabindex="-1"></a>represents a specific probeset ID, and each column corresponds to an</span>
-<span id="cb30-347"><a href="#cb30-347" aria-hidden="true" tabindex="-1"></a>individual patient sample. The expression data has been matched to the</span>
-<span id="cb30-348"><a href="#cb30-348" aria-hidden="true" tabindex="-1"></a>clinical metadata and prepared for downstream differential expression</span>
-<span id="cb30-349"><a href="#cb30-349" aria-hidden="true" tabindex="-1"></a>analysis and predictive modelling.</span>
-<span id="cb30-350"><a href="#cb30-350" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb30-353"><a href="#cb30-353" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
-<span id="cb30-354"><a href="#cb30-354" aria-hidden="true" tabindex="-1"></a><span class="fu">head</span>(expr_df_matched)[,<span class="dv">1</span><span class="sc">:</span><span class="dv">5</span>]</span>
-<span id="cb30-355"><a href="#cb30-355" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb30-356"><a href="#cb30-356" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb30-357"><a href="#cb30-357" aria-hidden="true" tabindex="-1"></a><span class="fu">## 2.2 Clinical Data (`pheno_clean`)</span></span>
-<span id="cb30-358"><a href="#cb30-358" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb30-359"><a href="#cb30-359" aria-hidden="true" tabindex="-1"></a>The clinical dataset includes detailed **phenotypic and demographic</span>
-<span id="cb30-360"><a href="#cb30-360" aria-hidden="true" tabindex="-1"></a>information** for the same set of patient samples. It contains variables</span>
-<span id="cb30-361"><a href="#cb30-361" aria-hidden="true" tabindex="-1"></a>such as:</span>
-<span id="cb30-362"><a href="#cb30-362" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb30-363"><a href="#cb30-363" aria-hidden="true" tabindex="-1"></a><span class="ss">-   </span>**group:** Disease status (SLE or Normal)</span>
-<span id="cb30-364"><a href="#cb30-364" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb30-365"><a href="#cb30-365" aria-hidden="true" tabindex="-1"></a><span class="ss">-   </span>**age_at_baseline:** Age of patient at baseline</span>
-<span id="cb30-366"><a href="#cb30-366" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb30-367"><a href="#cb30-367" aria-hidden="true" tabindex="-1"></a><span class="ss">-   </span>**sex, race, region:** Demographic information</span>
-<span id="cb30-368"><a href="#cb30-368" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb30-369"><a href="#cb30-369" aria-hidden="true" tabindex="-1"></a><span class="ss">-   </span>**batch, time:** Technical variables</span>
-<span id="cb30-370"><a href="#cb30-370" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb30-371"><a href="#cb30-371" aria-hidden="true" tabindex="-1"></a><span class="ss">-   </span>**adna_at_baseline:** Anti-dsDNA antibody status (Positive/Negative)</span>
-<span id="cb30-372"><a href="#cb30-372" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb30-373"><a href="#cb30-373" aria-hidden="true" tabindex="-1"></a><span class="ss">-   </span>**antidsdna_at_baseline:** Anti-dsDNA antibody titer (IU/mL)</span>
-<span id="cb30-374"><a href="#cb30-374" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb30-375"><a href="#cb30-375" aria-hidden="true" tabindex="-1"></a><span class="ss">-   </span>**c3, c3_status, c4, c4_status:** Complement protein levels and</span>
-<span id="cb30-376"><a href="#cb30-376" aria-hidden="true" tabindex="-1"></a>    status</span>
-<span id="cb30-377"><a href="#cb30-377" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb30-378"><a href="#cb30-378" aria-hidden="true" tabindex="-1"></a><span class="ss">-   </span>**sledai_at_baseline:** SLE Disease Activity Index score at baseline</span>
-<span id="cb30-379"><a href="#cb30-379" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb30-380"><a href="#cb30-380" aria-hidden="true" tabindex="-1"></a>The dataset was cleaned to remove unnecessary prefixes and placeholder</span>
-<span id="cb30-381"><a href="#cb30-381" aria-hidden="true" tabindex="-1"></a>values (e.g. <span class="in">`&quot;--&quot;`</span>), and missing values were converted to <span class="in">`NA`</span>. The</span>
-<span id="cb30-382"><a href="#cb30-382" aria-hidden="true" tabindex="-1"></a>clinical variables were formatted appropriately for statistical analysis</span>
-<span id="cb30-383"><a href="#cb30-383" aria-hidden="true" tabindex="-1"></a>and machine learning.</span>
-<span id="cb30-384"><a href="#cb30-384" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb30-385"><a href="#cb30-385" aria-hidden="true" tabindex="-1"></a>These two datasets were merged based on sample identifiers to enable</span>
-<span id="cb30-386"><a href="#cb30-386" aria-hidden="true" tabindex="-1"></a>integrated analysis of gene expression profiles and clinical features.</span>
-<span id="cb30-387"><a href="#cb30-387" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb30-390"><a href="#cb30-390" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
-<span id="cb30-391"><a href="#cb30-391" aria-hidden="true" tabindex="-1"></a><span class="fu">head</span>(pheno_clean)</span>
-<span id="cb30-392"><a href="#cb30-392" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb30-393"><a href="#cb30-393" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb30-396"><a href="#cb30-396" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
-<span id="cb30-397"><a href="#cb30-397" aria-hidden="true" tabindex="-1"></a><span class="co"># Save cleaned datasets</span></span>
-<span id="cb30-398"><a href="#cb30-398" aria-hidden="true" tabindex="-1"></a><span class="fu">saveRDS</span>(expr_df_matched, <span class="at">file =</span> <span class="st">&quot;data/expr_df_matched.rds&quot;</span>)</span>
-<span id="cb30-399"><a href="#cb30-399" aria-hidden="true" tabindex="-1"></a><span class="fu">saveRDS</span>(pheno_clean, <span class="at">file =</span> <span class="st">&quot;data/pheno_clean.rds&quot;</span>)</span>
-<span id="cb30-400"><a href="#cb30-400" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<div class="sourceCode" id="cb35" data-shortcodes="false"><pre class="sourceCode markdown code-with-copy"><code class="sourceCode markdown"><span id="cb35-1"><a href="#cb35-1" aria-hidden="true" tabindex="-1"></a><span class="co">---</span></span>
+<span id="cb35-2"><a href="#cb35-2" aria-hidden="true" tabindex="-1"></a><span class="an">title:</span><span class="co"> &quot;DATA3888_2025 Biomedical&quot;</span></span>
+<span id="cb35-3"><a href="#cb35-3" aria-hidden="true" tabindex="-1"></a><span class="an">subtitle:</span><span class="co"> &quot;Predicting SLE Disease Risk Using Gene Expression Data&quot;</span></span>
+<span id="cb35-4"><a href="#cb35-4" aria-hidden="true" tabindex="-1"></a><span class="an">author:</span><span class="co"> &quot;(Place your name/Unikey/SID)&quot;</span></span>
+<span id="cb35-5"><a href="#cb35-5" aria-hidden="true" tabindex="-1"></a><span class="an">date:</span><span class="co"> &quot;`r format(Sys.time(), &#39;%d %B, %Y&#39;)`&quot;</span></span>
+<span id="cb35-6"><a href="#cb35-6" aria-hidden="true" tabindex="-1"></a><span class="an">format:</span></span>
+<span id="cb35-7"><a href="#cb35-7" aria-hidden="true" tabindex="-1"></a><span class="co">  html:</span></span>
+<span id="cb35-8"><a href="#cb35-8" aria-hidden="true" tabindex="-1"></a><span class="co">    code-tools: true</span></span>
+<span id="cb35-9"><a href="#cb35-9" aria-hidden="true" tabindex="-1"></a><span class="co">    code-fold: true</span></span>
+<span id="cb35-10"><a href="#cb35-10" aria-hidden="true" tabindex="-1"></a><span class="co">    fig_caption: yes</span></span>
+<span id="cb35-11"><a href="#cb35-11" aria-hidden="true" tabindex="-1"></a><span class="co">    number_sections: yes</span></span>
+<span id="cb35-12"><a href="#cb35-12" aria-hidden="true" tabindex="-1"></a><span class="co">    embed-resources: true</span></span>
+<span id="cb35-13"><a href="#cb35-13" aria-hidden="true" tabindex="-1"></a><span class="co">    theme: flatly</span></span>
+<span id="cb35-14"><a href="#cb35-14" aria-hidden="true" tabindex="-1"></a><span class="co">    css: </span></span>
+<span id="cb35-15"><a href="#cb35-15" aria-hidden="true" tabindex="-1"></a><span class="co">      - https://use.fontawesome.com/releases/v5.0.6/css/all.css</span></span>
+<span id="cb35-16"><a href="#cb35-16" aria-hidden="true" tabindex="-1"></a><span class="co">    toc: true</span></span>
+<span id="cb35-17"><a href="#cb35-17" aria-hidden="true" tabindex="-1"></a><span class="co">    toc_depth: 4</span></span>
+<span id="cb35-18"><a href="#cb35-18" aria-hidden="true" tabindex="-1"></a><span class="co">    toc_float: true</span></span>
+<span id="cb35-19"><a href="#cb35-19" aria-hidden="true" tabindex="-1"></a><span class="an">execute:</span></span>
+<span id="cb35-20"><a href="#cb35-20" aria-hidden="true" tabindex="-1"></a><span class="co">  echo: true</span></span>
+<span id="cb35-21"><a href="#cb35-21" aria-hidden="true" tabindex="-1"></a><span class="co">  tidy: true</span></span>
+<span id="cb35-22"><a href="#cb35-22" aria-hidden="true" tabindex="-1"></a><span class="an">editor:</span><span class="co"> </span></span>
+<span id="cb35-23"><a href="#cb35-23" aria-hidden="true" tabindex="-1"></a><span class="co">  markdown: </span></span>
+<span id="cb35-24"><a href="#cb35-24" aria-hidden="true" tabindex="-1"></a><span class="co">    wrap: 72</span></span>
+<span id="cb35-25"><a href="#cb35-25" aria-hidden="true" tabindex="-1"></a><span class="co">---</span></span>
+<span id="cb35-26"><a href="#cb35-26" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-27"><a href="#cb35-27" aria-hidden="true" tabindex="-1"></a><span class="in">```{r setup, include=FALSE}</span></span>
+<span id="cb35-28"><a href="#cb35-28" aria-hidden="true" tabindex="-1"></a><span class="in">library(tidyverse)</span></span>
+<span id="cb35-29"><a href="#cb35-29" aria-hidden="true" tabindex="-1"></a><span class="in">library(Biobase)</span></span>
+<span id="cb35-30"><a href="#cb35-30" aria-hidden="true" tabindex="-1"></a><span class="in">library(BiocGenerics)</span></span>
+<span id="cb35-31"><a href="#cb35-31" aria-hidden="true" tabindex="-1"></a><span class="in">library(GEOquery)</span></span>
+<span id="cb35-32"><a href="#cb35-32" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb35-33"><a href="#cb35-33" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-34"><a href="#cb35-34" aria-hidden="true" tabindex="-1"></a><span class="fu"># 1 Introduction</span></span>
+<span id="cb35-35"><a href="#cb35-35" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-36"><a href="#cb35-36" aria-hidden="true" tabindex="-1"></a>**Develop and deploy a risk calculator to predict SLE risk using gene</span>
+<span id="cb35-37"><a href="#cb35-37" aria-hidden="true" tabindex="-1"></a>expression and clinical data.**\</span>
+<span id="cb35-38"><a href="#cb35-38" aria-hidden="true" tabindex="-1"></a>Include:</span>
+<span id="cb35-39"><a href="#cb35-39" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-40"><a href="#cb35-40" aria-hidden="true" tabindex="-1"></a><span class="sc">\-</span> Background on SLE</span>
+<span id="cb35-41"><a href="#cb35-41" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-42"><a href="#cb35-42" aria-hidden="true" tabindex="-1"></a><span class="sc">\-</span> Aim of the analysis</span>
+<span id="cb35-43"><a href="#cb35-43" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-44"><a href="#cb35-44" aria-hidden="true" tabindex="-1"></a><span class="ss">-   </span>Overview of the dataset (GSE88884)</span>
+<span id="cb35-45"><a href="#cb35-45" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-46"><a href="#cb35-46" aria-hidden="true" tabindex="-1"></a><span class="ss">-   </span>Outline of steps: Data cleaning → EDA → Modelling → Interpretation</span>
+<span id="cb35-47"><a href="#cb35-47" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-48"><a href="#cb35-48" aria-hidden="true" tabindex="-1"></a><span class="fu"># 2 Data Import and preprocess(GSE88884)</span></span>
+<span id="cb35-49"><a href="#cb35-49" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-50"><a href="#cb35-50" aria-hidden="true" tabindex="-1"></a><span class="fu">## 2.1 Gene Expression Data</span></span>
+<span id="cb35-51"><a href="#cb35-51" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-52"><a href="#cb35-52" aria-hidden="true" tabindex="-1"></a>Load the preprocessed gene expression matrix. The data contains **92,343</span>
+<span id="cb35-53"><a href="#cb35-53" aria-hidden="true" tabindex="-1"></a>probeset IDs** and **1,820 patient samples**.</span>
+<span id="cb35-54"><a href="#cb35-54" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-55"><a href="#cb35-55" aria-hidden="true" tabindex="-1"></a><span class="in">```{r message=FALSE, warning=FALSE}</span></span>
+<span id="cb35-56"><a href="#cb35-56" aria-hidden="true" tabindex="-1"></a><span class="in">library(readr)</span></span>
+<span id="cb35-57"><a href="#cb35-57" aria-hidden="true" tabindex="-1"></a><span class="in">library(tidyverse)</span></span>
+<span id="cb35-58"><a href="#cb35-58" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-59"><a href="#cb35-59" aria-hidden="true" tabindex="-1"></a><span class="in"># 1. Load the gene expression data (already preprocessed)</span></span>
+<span id="cb35-60"><a href="#cb35-60" aria-hidden="true" tabindex="-1"></a><span class="in"># download from GSE88884</span></span>
+<span id="cb35-61"><a href="#cb35-61" aria-hidden="true" tabindex="-1"></a><span class="in">expr_raw &lt;- read_tsv(&quot;data/GSE88884_ILLUMINATE1and2_SLEbaselineVsHealthy_preprocessed.txt&quot;)</span></span>
+<span id="cb35-62"><a href="#cb35-62" aria-hidden="true" tabindex="-1"></a><span class="in">expr_df &lt;- as.data.frame(expr_raw)</span></span>
+<span id="cb35-63"><a href="#cb35-63" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-64"><a href="#cb35-64" aria-hidden="true" tabindex="-1"></a><span class="in">dim(expr_df) #92343 genes and 1820 patients</span></span>
+<span id="cb35-65"><a href="#cb35-65" aria-hidden="true" tabindex="-1"></a><span class="in">head(expr_df)[, 1:5]</span></span>
+<span id="cb35-66"><a href="#cb35-66" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb35-67"><a href="#cb35-67" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-68"><a href="#cb35-68" aria-hidden="true" tabindex="-1"></a><span class="fu">### Gene Symbol Mapping and Aggregation</span></span>
+<span id="cb35-69"><a href="#cb35-69" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-70"><a href="#cb35-70" aria-hidden="true" tabindex="-1"></a><span class="in">```{r message=FALSE, warning=FALSE}</span></span>
+<span id="cb35-71"><a href="#cb35-71" aria-hidden="true" tabindex="-1"></a><span class="in">library(hta20transcriptcluster.db)</span></span>
+<span id="cb35-72"><a href="#cb35-72" aria-hidden="true" tabindex="-1"></a><span class="in">library(AnnotationDbi)</span></span>
+<span id="cb35-73"><a href="#cb35-73" aria-hidden="true" tabindex="-1"></a><span class="in">library(dplyr)</span></span>
+<span id="cb35-74"><a href="#cb35-74" aria-hidden="true" tabindex="-1"></a><span class="in">library(tibble)</span></span>
+<span id="cb35-75"><a href="#cb35-75" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-76"><a href="#cb35-76" aria-hidden="true" tabindex="-1"></a><span class="in">#Removes the :1 suffix from probe IDs </span></span>
+<span id="cb35-77"><a href="#cb35-77" aria-hidden="true" tabindex="-1"></a><span class="in">expr_df &lt;- expr_df %&gt;%</span></span>
+<span id="cb35-78"><a href="#cb35-78" aria-hidden="true" tabindex="-1"></a><span class="in">  mutate(probe_clean = sub(&quot;:1$&quot;, &quot;&quot;, probeset))</span></span>
+<span id="cb35-79"><a href="#cb35-79" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-80"><a href="#cb35-80" aria-hidden="true" tabindex="-1"></a><span class="in"># Map using Bioconductor annotation database</span></span>
+<span id="cb35-81"><a href="#cb35-81" aria-hidden="true" tabindex="-1"></a><span class="in">mapped_annot &lt;- AnnotationDbi::select(</span></span>
+<span id="cb35-82"><a href="#cb35-82" aria-hidden="true" tabindex="-1"></a><span class="in">  hta20transcriptcluster.db,</span></span>
+<span id="cb35-83"><a href="#cb35-83" aria-hidden="true" tabindex="-1"></a><span class="in">  keys = unique(expr_df$probe_clean),</span></span>
+<span id="cb35-84"><a href="#cb35-84" aria-hidden="true" tabindex="-1"></a><span class="in">  columns = c(&quot;SYMBOL&quot;, &quot;GENENAME&quot;, &quot;ENSEMBL&quot;),</span></span>
+<span id="cb35-85"><a href="#cb35-85" aria-hidden="true" tabindex="-1"></a><span class="in">  keytype = &quot;PROBEID&quot;</span></span>
+<span id="cb35-86"><a href="#cb35-86" aria-hidden="true" tabindex="-1"></a><span class="in">)</span></span>
+<span id="cb35-87"><a href="#cb35-87" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-88"><a href="#cb35-88" aria-hidden="true" tabindex="-1"></a><span class="in">#Joining expression data with gene annotations</span></span>
+<span id="cb35-89"><a href="#cb35-89" aria-hidden="true" tabindex="-1"></a><span class="in">expr_annotated &lt;- expr_df %&gt;%</span></span>
+<span id="cb35-90"><a href="#cb35-90" aria-hidden="true" tabindex="-1"></a><span class="in">  left_join(mapped_annot, by = c(&quot;probe_clean&quot; = &quot;PROBEID&quot;))</span></span>
+<span id="cb35-91"><a href="#cb35-91" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-92"><a href="#cb35-92" aria-hidden="true" tabindex="-1"></a><span class="in"># Removing probes that couldn&#39;t be mapped</span></span>
+<span id="cb35-93"><a href="#cb35-93" aria-hidden="true" tabindex="-1"></a><span class="in">expr_annotated &lt;- expr_annotated %&gt;%</span></span>
+<span id="cb35-94"><a href="#cb35-94" aria-hidden="true" tabindex="-1"></a><span class="in">  filter(!is.na(SYMBOL))</span></span>
+<span id="cb35-95"><a href="#cb35-95" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-96"><a href="#cb35-96" aria-hidden="true" tabindex="-1"></a><span class="in"># Selecting one probe per gene</span></span>
+<span id="cb35-97"><a href="#cb35-97" aria-hidden="true" tabindex="-1"></a><span class="in">expr_gene &lt;- expr_annotated %&gt;%</span></span>
+<span id="cb35-98"><a href="#cb35-98" aria-hidden="true" tabindex="-1"></a><span class="in">  group_by(SYMBOL) %&gt;%</span></span>
+<span id="cb35-99"><a href="#cb35-99" aria-hidden="true" tabindex="-1"></a><span class="in">  slice_max(order_by = rowMeans(across(where(is.numeric))), n = 1, with_ties = FALSE) %&gt;%</span></span>
+<span id="cb35-100"><a href="#cb35-100" aria-hidden="true" tabindex="-1"></a><span class="in">  ungroup()</span></span>
+<span id="cb35-101"><a href="#cb35-101" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-102"><a href="#cb35-102" aria-hidden="true" tabindex="-1"></a><span class="in">#Finalizing expression matrix</span></span>
+<span id="cb35-103"><a href="#cb35-103" aria-hidden="true" tabindex="-1"></a><span class="in">expr_final &lt;- expr_gene %&gt;%</span></span>
+<span id="cb35-104"><a href="#cb35-104" aria-hidden="true" tabindex="-1"></a><span class="in">  dplyr::select(-probeset, -probe_clean, -GENENAME, -ENSEMBL) %&gt;%</span></span>
+<span id="cb35-105"><a href="#cb35-105" aria-hidden="true" tabindex="-1"></a><span class="in">  column_to_rownames(&quot;SYMBOL&quot;)</span></span>
+<span id="cb35-106"><a href="#cb35-106" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-107"><a href="#cb35-107" aria-hidden="true" tabindex="-1"></a><span class="in">#Overwrites expr_df with final cleaned data</span></span>
+<span id="cb35-108"><a href="#cb35-108" aria-hidden="true" tabindex="-1"></a><span class="in">expr_df &lt;- expr_final</span></span>
+<span id="cb35-109"><a href="#cb35-109" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-110"><a href="#cb35-110" aria-hidden="true" tabindex="-1"></a><span class="in">dim(expr_df)</span></span>
+<span id="cb35-111"><a href="#cb35-111" aria-hidden="true" tabindex="-1"></a><span class="in">head(expr_df)[, 1:5]</span></span>
+<span id="cb35-112"><a href="#cb35-112" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb35-113"><a href="#cb35-113" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-114"><a href="#cb35-114" aria-hidden="true" tabindex="-1"></a>The expression matrix originally contained 92,343 probeset IDs, each</span>
+<span id="cb35-115"><a href="#cb35-115" aria-hidden="true" tabindex="-1"></a>representing individual probes from the microarray platform. To convert</span>
+<span id="cb35-116"><a href="#cb35-116" aria-hidden="true" tabindex="-1"></a>this data into a more interpretable gene-level matrix, we performed the</span>
+<span id="cb35-117"><a href="#cb35-117" aria-hidden="true" tabindex="-1"></a>following steps:</span>
+<span id="cb35-118"><a href="#cb35-118" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-119"><a href="#cb35-119" aria-hidden="true" tabindex="-1"></a><span class="ss">1.  </span>**Probe ID cleaning**: We removed the <span class="in">`:1`</span> suffix from each probe ID</span>
+<span id="cb35-120"><a href="#cb35-120" aria-hidden="true" tabindex="-1"></a>    to match the annotation database.</span>
+<span id="cb35-121"><a href="#cb35-121" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-122"><a href="#cb35-122" aria-hidden="true" tabindex="-1"></a><span class="ss">2.  </span>**Annotation mapping**: Using the <span class="in">`hta20transcriptcluster.db`</span></span>
+<span id="cb35-123"><a href="#cb35-123" aria-hidden="true" tabindex="-1"></a>    Bioconductor annotation package, we mapped each cleaned probe ID to</span>
+<span id="cb35-124"><a href="#cb35-124" aria-hidden="true" tabindex="-1"></a>    its corresponding gene symbol (<span class="in">`SYMBOL`</span>), gene name (<span class="in">`GENENAME`</span>),</span>
+<span id="cb35-125"><a href="#cb35-125" aria-hidden="true" tabindex="-1"></a>    and Ensembl ID.</span>
+<span id="cb35-126"><a href="#cb35-126" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-127"><a href="#cb35-127" aria-hidden="true" tabindex="-1"></a><span class="ss">3.  </span>**Filtering**: Probes that could not be mapped to any known gene</span>
+<span id="cb35-128"><a href="#cb35-128" aria-hidden="true" tabindex="-1"></a>    symbol were removed.</span>
+<span id="cb35-129"><a href="#cb35-129" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-130"><a href="#cb35-130" aria-hidden="true" tabindex="-1"></a><span class="ss">4.  </span>**Aggregation**: For genes that had multiple probes, we retained</span>
+<span id="cb35-131"><a href="#cb35-131" aria-hidden="true" tabindex="-1"></a>    only the probe with the **highest average expression across all</span>
+<span id="cb35-132"><a href="#cb35-132" aria-hidden="true" tabindex="-1"></a>    samples**. This ensures we keep the most representative probe for</span>
+<span id="cb35-133"><a href="#cb35-133" aria-hidden="true" tabindex="-1"></a>    each gene and avoids duplication in downstream analyses.</span>
+<span id="cb35-134"><a href="#cb35-134" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-135"><a href="#cb35-135" aria-hidden="true" tabindex="-1"></a><span class="ss">5.  </span>**Final expression matrix**: The resulting matrix has gene symbols</span>
+<span id="cb35-136"><a href="#cb35-136" aria-hidden="true" tabindex="-1"></a>    as row names and retains all 1,820 samples as columns. We stored</span>
+<span id="cb35-137"><a href="#cb35-137" aria-hidden="true" tabindex="-1"></a>    this final gene-level matrix as <span class="in">`expr_df`</span>, which is used in all</span>
+<span id="cb35-138"><a href="#cb35-138" aria-hidden="true" tabindex="-1"></a>    subsequent analyses.</span>
+<span id="cb35-139"><a href="#cb35-139" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-140"><a href="#cb35-140" aria-hidden="true" tabindex="-1"></a>As a result, the number of features was reduced from 92,343 to</span>
+<span id="cb35-141"><a href="#cb35-141" aria-hidden="true" tabindex="-1"></a>22,072—representing unique genes suitable for differential expression</span>
+<span id="cb35-142"><a href="#cb35-142" aria-hidden="true" tabindex="-1"></a>and machine learning tasks.</span>
+<span id="cb35-143"><a href="#cb35-143" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-144"><a href="#cb35-144" aria-hidden="true" tabindex="-1"></a><span class="fu">## 2.2 Phenotypic data</span></span>
+<span id="cb35-145"><a href="#cb35-145" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-148"><a href="#cb35-148" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
+<span id="cb35-149"><a href="#cb35-149" aria-hidden="true" tabindex="-1"></a><span class="co"># 2. Download phenotypic data using GEOquery</span></span>
+<span id="cb35-150"><a href="#cb35-150" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(GEOquery)</span>
+<span id="cb35-151"><a href="#cb35-151" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-152"><a href="#cb35-152" aria-hidden="true" tabindex="-1"></a>gse88884 <span class="ot">&lt;-</span> <span class="fu">getGEO</span>(<span class="st">&quot;GSE88884&quot;</span>)</span>
+<span id="cb35-153"><a href="#cb35-153" aria-hidden="true" tabindex="-1"></a>gse88884 <span class="ot">&lt;-</span> gse88884<span class="sc">$</span>GSE88884_series_matrix.txt.gz</span>
+<span id="cb35-154"><a href="#cb35-154" aria-hidden="true" tabindex="-1"></a>pheno_gse88884 <span class="ot">&lt;-</span> <span class="fu">pData</span>(gse88884)</span>
+<span id="cb35-155"><a href="#cb35-155" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-156"><a href="#cb35-156" aria-hidden="true" tabindex="-1"></a><span class="fu">colnames</span>(pheno_gse88884)</span>
+<span id="cb35-157"><a href="#cb35-157" aria-hidden="true" tabindex="-1"></a><span class="co">#head(pheno_gse88884$supplementary_file)</span></span>
+<span id="cb35-158"><a href="#cb35-158" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb35-159"><a href="#cb35-159" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-160"><a href="#cb35-160" aria-hidden="true" tabindex="-1"></a><span class="fu">### Patients Mapping</span></span>
+<span id="cb35-161"><a href="#cb35-161" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-162"><a href="#cb35-162" aria-hidden="true" tabindex="-1"></a>We extracted the mapping between sample accession numbers (GSM IDs) and</span>
+<span id="cb35-163"><a href="#cb35-163" aria-hidden="true" tabindex="-1"></a>CEL filenames from the supplementary_file column in the phenotypic data.</span>
+<span id="cb35-164"><a href="#cb35-164" aria-hidden="true" tabindex="-1"></a>The column names of the gene expression matrix were replaced with their</span>
+<span id="cb35-165"><a href="#cb35-165" aria-hidden="true" tabindex="-1"></a>corresponding GSM IDs to facilitate downstream analysis and</span>
+<span id="cb35-166"><a href="#cb35-166" aria-hidden="true" tabindex="-1"></a>interpretation.</span>
+<span id="cb35-167"><a href="#cb35-167" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-170"><a href="#cb35-170" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
+<span id="cb35-171"><a href="#cb35-171" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(dplyr)</span>
+<span id="cb35-172"><a href="#cb35-172" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-173"><a href="#cb35-173" aria-hidden="true" tabindex="-1"></a><span class="co"># 1. Extract supplementary file column</span></span>
+<span id="cb35-174"><a href="#cb35-174" aria-hidden="true" tabindex="-1"></a>pheno_clean <span class="ot">&lt;-</span> pheno_gse88884 <span class="sc">%&gt;%</span></span>
+<span id="cb35-175"><a href="#cb35-175" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(</span>
+<span id="cb35-176"><a href="#cb35-176" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Extract GSM accession</span></span>
+<span id="cb35-177"><a href="#cb35-177" aria-hidden="true" tabindex="-1"></a>    <span class="at">GSM_ID =</span> geo_accession,</span>
+<span id="cb35-178"><a href="#cb35-178" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb35-179"><a href="#cb35-179" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Extract CEL filename from supplementary_file column</span></span>
+<span id="cb35-180"><a href="#cb35-180" aria-hidden="true" tabindex="-1"></a>    <span class="at">cel_filename =</span> <span class="fu">str_extract</span>(supplementary_file, <span class="st">&quot;(?&lt;=_)[A-Z0-9]+</span><span class="sc">\\</span><span class="st">.CEL&quot;</span>)</span>
+<span id="cb35-181"><a href="#cb35-181" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">%&gt;%</span></span>
+<span id="cb35-182"><a href="#cb35-182" aria-hidden="true" tabindex="-1"></a>  dplyr<span class="sc">::</span><span class="fu">select</span>(GSM_ID, cel_filename, source_name_ch1, <span class="fu">contains</span>(<span class="st">&quot;characteristics_ch1&quot;</span>))</span>
+<span id="cb35-183"><a href="#cb35-183" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-184"><a href="#cb35-184" aria-hidden="true" tabindex="-1"></a><span class="co"># Quick check</span></span>
+<span id="cb35-185"><a href="#cb35-185" aria-hidden="true" tabindex="-1"></a><span class="fu">head</span>(pheno_clean[, <span class="dv">1</span><span class="sc">:</span><span class="dv">3</span>])</span>
+<span id="cb35-186"><a href="#cb35-186" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-187"><a href="#cb35-187" aria-hidden="true" tabindex="-1"></a><span class="co"># Keep only samples present in expression data</span></span>
+<span id="cb35-188"><a href="#cb35-188" aria-hidden="true" tabindex="-1"></a>matched_pheno <span class="ot">&lt;-</span> pheno_clean <span class="sc">%&gt;%</span></span>
+<span id="cb35-189"><a href="#cb35-189" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(cel_filename <span class="sc">%in%</span> <span class="fu">colnames</span>(expr_df))</span>
+<span id="cb35-190"><a href="#cb35-190" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-191"><a href="#cb35-191" aria-hidden="true" tabindex="-1"></a><span class="co"># Filter expression data</span></span>
+<span id="cb35-192"><a href="#cb35-192" aria-hidden="true" tabindex="-1"></a>expr_df_matched <span class="ot">&lt;-</span> expr_df[, matched_pheno<span class="sc">$</span>cel_filename]</span>
+<span id="cb35-193"><a href="#cb35-193" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-194"><a href="#cb35-194" aria-hidden="true" tabindex="-1"></a>name_map <span class="ot">&lt;-</span> <span class="fu">setNames</span>(matched_pheno<span class="sc">$</span>GSM_ID, matched_pheno<span class="sc">$</span>cel_filename)</span>
+<span id="cb35-195"><a href="#cb35-195" aria-hidden="true" tabindex="-1"></a><span class="fu">colnames</span>(expr_df_matched) <span class="ot">&lt;-</span> name_map[<span class="fu">colnames</span>(expr_df_matched)]</span>
+<span id="cb35-196"><a href="#cb35-196" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-197"><a href="#cb35-197" aria-hidden="true" tabindex="-1"></a><span class="fu">dim</span>(expr_df_matched)</span>
+<span id="cb35-198"><a href="#cb35-198" aria-hidden="true" tabindex="-1"></a><span class="fu">head</span>(expr_df_matched)[, <span class="dv">0</span><span class="sc">:</span><span class="dv">5</span>]</span>
+<span id="cb35-199"><a href="#cb35-199" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb35-200"><a href="#cb35-200" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-201"><a href="#cb35-201" aria-hidden="true" tabindex="-1"></a><span class="fu">### Data cleaning</span></span>
+<span id="cb35-202"><a href="#cb35-202" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-203"><a href="#cb35-203" aria-hidden="true" tabindex="-1"></a>In this section, we cleaned and processed the clinical (phenotypic) data</span>
+<span id="cb35-204"><a href="#cb35-204" aria-hidden="true" tabindex="-1"></a>from the GSE88884 dataset to prepare it for exploratory data analysis</span>
+<span id="cb35-205"><a href="#cb35-205" aria-hidden="true" tabindex="-1"></a>and predictive modelling.</span>
+<span id="cb35-206"><a href="#cb35-206" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-207"><a href="#cb35-207" aria-hidden="true" tabindex="-1"></a><span class="ss">1.  </span>**Variable Selection and Renaming** We first selected a subset of</span>
+<span id="cb35-208"><a href="#cb35-208" aria-hidden="true" tabindex="-1"></a>    relevant clinical variables from the original phenotype data,</span>
+<span id="cb35-209"><a href="#cb35-209" aria-hidden="true" tabindex="-1"></a>    including demographic variables (sex, age, race, region), disease</span>
+<span id="cb35-210"><a href="#cb35-210" aria-hidden="true" tabindex="-1"></a>    activity score (SLEDAI), complement levels (C3 and C4), anti-dsDNA</span>
+<span id="cb35-211"><a href="#cb35-211" aria-hidden="true" tabindex="-1"></a>    antibody measurements, and treatment group. We also renamed the</span>
+<span id="cb35-212"><a href="#cb35-212" aria-hidden="true" tabindex="-1"></a>    columns for clarity and consistency.</span>
+<span id="cb35-213"><a href="#cb35-213" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-214"><a href="#cb35-214" aria-hidden="true" tabindex="-1"></a><span class="ss">2.  </span>**Simplifying Group Labels** The <span class="in">`group`</span> column originally contained</span>
+<span id="cb35-215"><a href="#cb35-215" aria-hidden="true" tabindex="-1"></a>    long text labels. We simplified this column to only retain two</span>
+<span id="cb35-216"><a href="#cb35-216" aria-hidden="true" tabindex="-1"></a>    categories: <span class="in">`&quot;SLE&quot;`</span> and <span class="in">`&quot;Normal&quot;`</span> (healthy controls), which will be</span>
+<span id="cb35-217"><a href="#cb35-217" aria-hidden="true" tabindex="-1"></a>    used as the primary outcome variable in the analysis.</span>
+<span id="cb35-218"><a href="#cb35-218" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-219"><a href="#cb35-219" aria-hidden="true" tabindex="-1"></a><span class="ss">3.  </span>**Cleaning Column Values** Many columns contained descriptive</span>
+<span id="cb35-220"><a href="#cb35-220" aria-hidden="true" tabindex="-1"></a>    prefixes within their values (e.g. <span class="in">`&quot;age_at_baseline: 43.5&quot;`</span>,</span>
+<span id="cb35-221"><a href="#cb35-221" aria-hidden="true" tabindex="-1"></a>    <span class="in">`&quot;Sex: Female&quot;`</span>). We removed these prefixes using <span class="in">`str_remove()`</span> and</span>
+<span id="cb35-222"><a href="#cb35-222" aria-hidden="true" tabindex="-1"></a>    <span class="in">`str_replace()`</span> functions to retain only the useful information</span>
+<span id="cb35-223"><a href="#cb35-223" aria-hidden="true" tabindex="-1"></a>    (e.g. <span class="in">`&quot;43.5&quot;`</span>, <span class="in">`&quot;Female&quot;`</span>). For numeric columns (age, anti-dsDNA</span>
+<span id="cb35-224"><a href="#cb35-224" aria-hidden="true" tabindex="-1"></a>    titer, C3, C4, SLEDAI score), we converted them to numeric type</span>
+<span id="cb35-225"><a href="#cb35-225" aria-hidden="true" tabindex="-1"></a>    after removing the prefixes.</span>
+<span id="cb35-226"><a href="#cb35-226" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-227"><a href="#cb35-227" aria-hidden="true" tabindex="-1"></a><span class="ss">4.  </span>**Handling Missing Values** Missing values in this dataset were</span>
+<span id="cb35-228"><a href="#cb35-228" aria-hidden="true" tabindex="-1"></a>    recorded as <span class="in">`&quot;--&quot;`</span>. We replaced these with <span class="in">`NA`</span> using <span class="in">`na_if()`</span> to</span>
+<span id="cb35-229"><a href="#cb35-229" aria-hidden="true" tabindex="-1"></a>    ensure they are correctly recognised as missing data in downstream</span>
+<span id="cb35-230"><a href="#cb35-230" aria-hidden="true" tabindex="-1"></a>    analyses.</span>
+<span id="cb35-231"><a href="#cb35-231" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-232"><a href="#cb35-232" aria-hidden="true" tabindex="-1"></a><span class="ss">5.  </span>**Important Clinical Thresholds** During cleaning, we removed long</span>
+<span id="cb35-233"><a href="#cb35-233" aria-hidden="true" tabindex="-1"></a>    descriptive texts that described the clinical thresholds used for</span>
+<span id="cb35-234"><a href="#cb35-234" aria-hidden="true" tabindex="-1"></a>    categorising certain variables. These descriptions are important to</span>
+<span id="cb35-235"><a href="#cb35-235" aria-hidden="true" tabindex="-1"></a>    interpret the clinical meaning of categorical variables, so we</span>
+<span id="cb35-236"><a href="#cb35-236" aria-hidden="true" tabindex="-1"></a>    explicitly report them here for reference:</span>
+<span id="cb35-237"><a href="#cb35-237" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-238"><a href="#cb35-238" aria-hidden="true" tabindex="-1"></a>    **Anti-dsDNA antibody status (`adna_at_baseline`):** *Negative* if</span>
+<span id="cb35-239"><a href="#cb35-239" aria-hidden="true" tabindex="-1"></a>    titer <span class="sc">\&lt;</span> 30 IU/mL; *Positive* if titer ≥ 30 IU/mL.</span>
+<span id="cb35-240"><a href="#cb35-240" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-241"><a href="#cb35-241" aria-hidden="true" tabindex="-1"></a>    **Complement C3 status (`c3_status`):** *Low* if C3 <span class="sc">\&lt;</span> 0.9 g/L;</span>
+<span id="cb35-242"><a href="#cb35-242" aria-hidden="true" tabindex="-1"></a>    *Normal* if C3 ≥ 0.9 g/L; *High* otherwise.</span>
+<span id="cb35-243"><a href="#cb35-243" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-244"><a href="#cb35-244" aria-hidden="true" tabindex="-1"></a>    **Complement C4 status (`c4_status`):** *Low* if C4 <span class="sc">\&lt;</span> 0.1 g/L;</span>
+<span id="cb35-245"><a href="#cb35-245" aria-hidden="true" tabindex="-1"></a>    *Normal* if C4 ≥ 0.1 g/L; *High* otherwise.</span>
+<span id="cb35-246"><a href="#cb35-246" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-249"><a href="#cb35-249" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
+<span id="cb35-250"><a href="#cb35-250" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(dplyr)</span>
+<span id="cb35-251"><a href="#cb35-251" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-252"><a href="#cb35-252" aria-hidden="true" tabindex="-1"></a>pheno_clean <span class="ot">&lt;-</span> pheno_clean <span class="sc">%&gt;%</span></span>
+<span id="cb35-253"><a href="#cb35-253" aria-hidden="true" tabindex="-1"></a>   dplyr<span class="sc">::</span><span class="fu">select</span>(</span>
+<span id="cb35-254"><a href="#cb35-254" aria-hidden="true" tabindex="-1"></a>    <span class="at">sledai_at_baseline =</span> characteristics_ch1<span class="fl">.8</span>,</span>
+<span id="cb35-255"><a href="#cb35-255" aria-hidden="true" tabindex="-1"></a>    <span class="at">group =</span> characteristics_ch1<span class="fl">.2</span>,</span>
+<span id="cb35-256"><a href="#cb35-256" aria-hidden="true" tabindex="-1"></a>    <span class="at">age_at_baseline =</span> characteristics_ch1<span class="fl">.6</span>,</span>
+<span id="cb35-257"><a href="#cb35-257" aria-hidden="true" tabindex="-1"></a>    <span class="at">sex =</span> characteristics_ch1<span class="fl">.5</span>,</span>
+<span id="cb35-258"><a href="#cb35-258" aria-hidden="true" tabindex="-1"></a>    <span class="at">race =</span> characteristics_ch1<span class="fl">.4</span>,</span>
+<span id="cb35-259"><a href="#cb35-259" aria-hidden="true" tabindex="-1"></a>    <span class="at">region =</span> characteristics_ch1<span class="fl">.7</span>,</span>
+<span id="cb35-260"><a href="#cb35-260" aria-hidden="true" tabindex="-1"></a>    <span class="at">batch =</span> characteristics_ch1<span class="fl">.3</span>,</span>
+<span id="cb35-261"><a href="#cb35-261" aria-hidden="true" tabindex="-1"></a>    <span class="at">time =</span> characteristics_ch1<span class="fl">.1</span>,</span>
+<span id="cb35-262"><a href="#cb35-262" aria-hidden="true" tabindex="-1"></a>    <span class="at">adna_at_baseline =</span> characteristics_ch1<span class="fl">.9</span>,</span>
+<span id="cb35-263"><a href="#cb35-263" aria-hidden="true" tabindex="-1"></a>    <span class="at">antidsdna_at_baseline =</span> characteristics_ch1<span class="fl">.10</span>,</span>
+<span id="cb35-264"><a href="#cb35-264" aria-hidden="true" tabindex="-1"></a>    <span class="at">c3_status =</span> characteristics_ch1<span class="fl">.11</span>,</span>
+<span id="cb35-265"><a href="#cb35-265" aria-hidden="true" tabindex="-1"></a>    <span class="at">c3 =</span> characteristics_ch1<span class="fl">.12</span>,</span>
+<span id="cb35-266"><a href="#cb35-266" aria-hidden="true" tabindex="-1"></a>    <span class="at">c4_status =</span> characteristics_ch1<span class="fl">.13</span>,</span>
+<span id="cb35-267"><a href="#cb35-267" aria-hidden="true" tabindex="-1"></a>    <span class="at">c4 =</span> characteristics_ch1<span class="fl">.14</span>,</span>
+<span id="cb35-268"><a href="#cb35-268" aria-hidden="true" tabindex="-1"></a>    cel_filename</span>
+<span id="cb35-269"><a href="#cb35-269" aria-hidden="true" tabindex="-1"></a>  )</span>
+<span id="cb35-270"><a href="#cb35-270" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-271"><a href="#cb35-271" aria-hidden="true" tabindex="-1"></a><span class="co"># 1. Clean &#39;group&#39; column to only keep &quot;SLE&quot; or &quot;Healthy&quot;</span></span>
+<span id="cb35-272"><a href="#cb35-272" aria-hidden="true" tabindex="-1"></a>pheno_clean <span class="ot">&lt;-</span> pheno_clean <span class="sc">%&gt;%</span></span>
+<span id="cb35-273"><a href="#cb35-273" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(</span>
+<span id="cb35-274"><a href="#cb35-274" aria-hidden="true" tabindex="-1"></a>    <span class="at">group =</span> <span class="fu">case_when</span>(</span>
+<span id="cb35-275"><a href="#cb35-275" aria-hidden="true" tabindex="-1"></a>      <span class="fu">str_detect</span>(group, <span class="st">&quot;SLE&quot;</span>) <span class="sc">~</span> <span class="st">&quot;SLE&quot;</span>,</span>
+<span id="cb35-276"><a href="#cb35-276" aria-hidden="true" tabindex="-1"></a>      <span class="fu">str_detect</span>(group, <span class="st">&quot;Normal&quot;</span>) <span class="sc">~</span> <span class="st">&quot;Normal&quot;</span>,</span>
+<span id="cb35-277"><a href="#cb35-277" aria-hidden="true" tabindex="-1"></a>      <span class="cn">TRUE</span> <span class="sc">~</span> <span class="cn">NA_character_</span></span>
+<span id="cb35-278"><a href="#cb35-278" aria-hidden="true" tabindex="-1"></a>    )</span>
+<span id="cb35-279"><a href="#cb35-279" aria-hidden="true" tabindex="-1"></a>  )</span>
+<span id="cb35-280"><a href="#cb35-280" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-281"><a href="#cb35-281" aria-hidden="true" tabindex="-1"></a><span class="co"># 2. Clean numeric and categorical columns (remove prefix)</span></span>
+<span id="cb35-282"><a href="#cb35-282" aria-hidden="true" tabindex="-1"></a>pheno_clean <span class="ot">&lt;-</span> pheno_clean <span class="sc">%&gt;%</span></span>
+<span id="cb35-283"><a href="#cb35-283" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(</span>
+<span id="cb35-284"><a href="#cb35-284" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Age</span></span>
+<span id="cb35-285"><a href="#cb35-285" aria-hidden="true" tabindex="-1"></a>    <span class="at">age_at_baseline =</span> <span class="fu">str_remove</span>(age_at_baseline, <span class="st">&quot;age_at_baseline: &quot;</span>),</span>
+<span id="cb35-286"><a href="#cb35-286" aria-hidden="true" tabindex="-1"></a>    <span class="at">age_at_baseline =</span> <span class="fu">na_if</span>(age_at_baseline, <span class="st">&quot;--&quot;</span>),</span>
+<span id="cb35-287"><a href="#cb35-287" aria-hidden="true" tabindex="-1"></a>    <span class="at">age_at_baseline =</span> <span class="fu">as.numeric</span>(age_at_baseline),</span>
+<span id="cb35-288"><a href="#cb35-288" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Sex</span></span>
+<span id="cb35-289"><a href="#cb35-289" aria-hidden="true" tabindex="-1"></a>    <span class="at">sex =</span> <span class="fu">str_remove</span>(sex, <span class="st">&quot;Sex: &quot;</span>),</span>
+<span id="cb35-290"><a href="#cb35-290" aria-hidden="true" tabindex="-1"></a>    <span class="at">sex =</span> <span class="fu">na_if</span>(sex, <span class="st">&quot;--&quot;</span>),</span>
+<span id="cb35-291"><a href="#cb35-291" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Race</span></span>
+<span id="cb35-292"><a href="#cb35-292" aria-hidden="true" tabindex="-1"></a>    <span class="at">race =</span> <span class="fu">str_remove</span>(race, <span class="st">&quot;race: &quot;</span>),</span>
+<span id="cb35-293"><a href="#cb35-293" aria-hidden="true" tabindex="-1"></a>    <span class="at">race =</span> <span class="fu">na_if</span>(race, <span class="st">&quot;--&quot;</span>),</span>
+<span id="cb35-294"><a href="#cb35-294" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Region</span></span>
+<span id="cb35-295"><a href="#cb35-295" aria-hidden="true" tabindex="-1"></a>    <span class="at">region =</span> <span class="fu">str_remove</span>(region, <span class="st">&quot;region: &quot;</span>),</span>
+<span id="cb35-296"><a href="#cb35-296" aria-hidden="true" tabindex="-1"></a>    <span class="at">region =</span> <span class="fu">na_if</span>(region, <span class="st">&quot;--&quot;</span>),</span>
+<span id="cb35-297"><a href="#cb35-297" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Batch</span></span>
+<span id="cb35-298"><a href="#cb35-298" aria-hidden="true" tabindex="-1"></a>    <span class="at">batch =</span> <span class="fu">str_remove</span>(batch, <span class="st">&quot;batch: &quot;</span>),</span>
+<span id="cb35-299"><a href="#cb35-299" aria-hidden="true" tabindex="-1"></a>    <span class="at">batch  =</span> <span class="fu">na_if</span>(batch, <span class="st">&quot;--&quot;</span>),</span>
+<span id="cb35-300"><a href="#cb35-300" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Time</span></span>
+<span id="cb35-301"><a href="#cb35-301" aria-hidden="true" tabindex="-1"></a>    <span class="at">time =</span> <span class="fu">str_remove</span>(time, <span class="st">&quot;time: &quot;</span>),</span>
+<span id="cb35-302"><a href="#cb35-302" aria-hidden="true" tabindex="-1"></a>    <span class="at">time =</span> <span class="fu">na_if</span>(time, <span class="st">&quot;--&quot;</span>),</span>
+<span id="cb35-303"><a href="#cb35-303" aria-hidden="true" tabindex="-1"></a>    <span class="co"># adna</span></span>
+<span id="cb35-304"><a href="#cb35-304" aria-hidden="true" tabindex="-1"></a>    <span class="at">adna_at_baseline =</span> <span class="fu">str_replace</span>(adna_at_baseline, <span class="st">&quot;^.*: &quot;</span>, <span class="st">&quot;&quot;</span>),  <span class="co"># Remove everything before and including last colon</span></span>
+<span id="cb35-305"><a href="#cb35-305" aria-hidden="true" tabindex="-1"></a>    <span class="at">adna_at_baseline =</span> <span class="fu">na_if</span>(adna_at_baseline, <span class="st">&quot;--&quot;</span>),</span>
+<span id="cb35-306"><a href="#cb35-306" aria-hidden="true" tabindex="-1"></a>    <span class="co"># antidsna </span></span>
+<span id="cb35-307"><a href="#cb35-307" aria-hidden="true" tabindex="-1"></a>    <span class="at">antidsdna_at_baseline =</span> <span class="fu">str_remove</span>(antidsdna_at_baseline, <span class="st">&quot;antidsdna_at_baseline </span><span class="sc">\\</span><span class="st">(iu</span><span class="sc">\\</span><span class="st">): &quot;</span>),</span>
+<span id="cb35-308"><a href="#cb35-308" aria-hidden="true" tabindex="-1"></a>    <span class="at">antidsdna_at_baseline =</span> <span class="fu">na_if</span>(antidsdna_at_baseline, <span class="st">&quot;--&quot;</span>),</span>
+<span id="cb35-309"><a href="#cb35-309" aria-hidden="true" tabindex="-1"></a>    <span class="at">antidsdna_at_baseline =</span> <span class="fu">as.numeric</span>(antidsdna_at_baseline),</span>
+<span id="cb35-310"><a href="#cb35-310" aria-hidden="true" tabindex="-1"></a>    <span class="co"># c3_status</span></span>
+<span id="cb35-311"><a href="#cb35-311" aria-hidden="true" tabindex="-1"></a>    <span class="at">c3_status =</span> <span class="fu">str_remove</span>(c3_status, <span class="st">&quot;c3base </span><span class="sc">\\</span><span class="st">(low &lt; 0.9 g/l; normal &gt;= 0.9 g/l; h = high</span><span class="sc">\\</span><span class="st">): &quot;</span>),</span>
+<span id="cb35-312"><a href="#cb35-312" aria-hidden="true" tabindex="-1"></a>    <span class="at">c3_status =</span> <span class="fu">na_if</span>(c3_status, <span class="st">&quot;--&quot;</span>),</span>
+<span id="cb35-313"><a href="#cb35-313" aria-hidden="true" tabindex="-1"></a>    <span class="co"># c3</span></span>
+<span id="cb35-314"><a href="#cb35-314" aria-hidden="true" tabindex="-1"></a>    <span class="at">c3 =</span> <span class="fu">str_remove</span>(c3, <span class="st">&quot;c3_at_baseline </span><span class="sc">\\</span><span class="st">(g/l</span><span class="sc">\\</span><span class="st">): &quot;</span>),</span>
+<span id="cb35-315"><a href="#cb35-315" aria-hidden="true" tabindex="-1"></a>    <span class="at">c3 =</span> <span class="fu">na_if</span>(c3, <span class="st">&quot;--&quot;</span>),</span>
+<span id="cb35-316"><a href="#cb35-316" aria-hidden="true" tabindex="-1"></a>    <span class="at">c3 =</span> <span class="fu">as.numeric</span>(c3),</span>
+<span id="cb35-317"><a href="#cb35-317" aria-hidden="true" tabindex="-1"></a>    <span class="co"># c4</span></span>
+<span id="cb35-318"><a href="#cb35-318" aria-hidden="true" tabindex="-1"></a>    <span class="at">c4_status =</span> <span class="fu">str_remove</span>(c4_status, <span class="st">&quot;c4base </span><span class="sc">\\</span><span class="st">(low &lt; 0.1 g/l; normal &gt;= 0.1 g/l; h = high</span><span class="sc">\\</span><span class="st">): &quot;</span>),</span>
+<span id="cb35-319"><a href="#cb35-319" aria-hidden="true" tabindex="-1"></a>    <span class="at">c4_status =</span> <span class="fu">na_if</span>(c4_status, <span class="st">&quot;--&quot;</span>),</span>
+<span id="cb35-320"><a href="#cb35-320" aria-hidden="true" tabindex="-1"></a>    <span class="co"># c4</span></span>
+<span id="cb35-321"><a href="#cb35-321" aria-hidden="true" tabindex="-1"></a>    <span class="at">c4 =</span> <span class="fu">str_remove</span>(c4, <span class="st">&quot;c4_at_baseline </span><span class="sc">\\</span><span class="st">(g/l</span><span class="sc">\\</span><span class="st">): &quot;</span>),</span>
+<span id="cb35-322"><a href="#cb35-322" aria-hidden="true" tabindex="-1"></a>    <span class="at">c4 =</span> <span class="fu">na_if</span>(c4, <span class="st">&quot;--&quot;</span>),</span>
+<span id="cb35-323"><a href="#cb35-323" aria-hidden="true" tabindex="-1"></a>    <span class="at">c4 =</span> <span class="fu">as.numeric</span>(c4),</span>
+<span id="cb35-324"><a href="#cb35-324" aria-hidden="true" tabindex="-1"></a>    <span class="co"># sledai</span></span>
+<span id="cb35-325"><a href="#cb35-325" aria-hidden="true" tabindex="-1"></a>    <span class="at">sledai_at_baseline =</span> <span class="fu">str_remove</span>(sledai_at_baseline, <span class="st">&quot;sledai_at_baseline: &quot;</span>),</span>
+<span id="cb35-326"><a href="#cb35-326" aria-hidden="true" tabindex="-1"></a>    <span class="at">sledai_at_baseline =</span> <span class="fu">na_if</span>(sledai_at_baseline, <span class="st">&quot;--&quot;</span>),</span>
+<span id="cb35-327"><a href="#cb35-327" aria-hidden="true" tabindex="-1"></a>    <span class="at">sledai_at_baseline =</span> <span class="fu">as.numeric</span>(sledai_at_baseline)</span>
+<span id="cb35-328"><a href="#cb35-328" aria-hidden="true" tabindex="-1"></a>  )</span>
+<span id="cb35-329"><a href="#cb35-329" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-330"><a href="#cb35-330" aria-hidden="true" tabindex="-1"></a><span class="fu">colnames</span>(pheno_clean)</span>
+<span id="cb35-331"><a href="#cb35-331" aria-hidden="true" tabindex="-1"></a><span class="fu">head</span>(pheno_clean)</span>
+<span id="cb35-332"><a href="#cb35-332" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb35-333"><a href="#cb35-333" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-334"><a href="#cb35-334" aria-hidden="true" tabindex="-1"></a><span class="fu">### NA value</span></span>
+<span id="cb35-335"><a href="#cb35-335" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-338"><a href="#cb35-338" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
+<span id="cb35-339"><a href="#cb35-339" aria-hidden="true" tabindex="-1"></a><span class="co"># Count NA values in each column</span></span>
+<span id="cb35-340"><a href="#cb35-340" aria-hidden="true" tabindex="-1"></a>na_counts <span class="ot">&lt;-</span> <span class="fu">sapply</span>(pheno_clean, <span class="cf">function</span>(x) <span class="fu">sum</span>(<span class="fu">is.na</span>(x)))</span>
+<span id="cb35-341"><a href="#cb35-341" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-342"><a href="#cb35-342" aria-hidden="true" tabindex="-1"></a><span class="co"># Convert to a data frame for better display</span></span>
+<span id="cb35-343"><a href="#cb35-343" aria-hidden="true" tabindex="-1"></a>na_table <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(<span class="at">Column =</span> <span class="fu">names</span>(na_counts), <span class="at">Number_of_NA_Values =</span> na_counts)</span>
+<span id="cb35-344"><a href="#cb35-344" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-345"><a href="#cb35-345" aria-hidden="true" tabindex="-1"></a><span class="co"># View the table</span></span>
+<span id="cb35-346"><a href="#cb35-346" aria-hidden="true" tabindex="-1"></a><span class="fu">print</span>(na_table)</span>
+<span id="cb35-347"><a href="#cb35-347" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-348"><a href="#cb35-348" aria-hidden="true" tabindex="-1"></a><span class="co"># Select rows where at least one column is NA</span></span>
+<span id="cb35-349"><a href="#cb35-349" aria-hidden="true" tabindex="-1"></a>rows_with_na <span class="ot">&lt;-</span> pheno_clean[<span class="sc">!</span><span class="fu">complete.cases</span>(pheno_clean), ]</span>
+<span id="cb35-350"><a href="#cb35-350" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-351"><a href="#cb35-351" aria-hidden="true" tabindex="-1"></a><span class="co"># View the result</span></span>
+<span id="cb35-352"><a href="#cb35-352" aria-hidden="true" tabindex="-1"></a><span class="fu">print</span>(rows_with_na)</span>
+<span id="cb35-353"><a href="#cb35-353" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-354"><a href="#cb35-354" aria-hidden="true" tabindex="-1"></a><span class="co"># Remove rows with any NA values</span></span>
+<span id="cb35-355"><a href="#cb35-355" aria-hidden="true" tabindex="-1"></a>pheno_clean <span class="ot">&lt;-</span> pheno_clean[<span class="fu">complete.cases</span>(pheno_clean), ]</span>
+<span id="cb35-356"><a href="#cb35-356" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb35-357"><a href="#cb35-357" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-358"><a href="#cb35-358" aria-hidden="true" tabindex="-1"></a><span class="fu"># 3 Data Overview</span></span>
+<span id="cb35-359"><a href="#cb35-359" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-360"><a href="#cb35-360" aria-hidden="true" tabindex="-1"></a>In this analysis, we used two cleaned datasets derived from the GSE88884</span>
+<span id="cb35-361"><a href="#cb35-361" aria-hidden="true" tabindex="-1"></a>study, which investigated gene expression profiles and clinical</span>
+<span id="cb35-362"><a href="#cb35-362" aria-hidden="true" tabindex="-1"></a>characteristics of patients with Systemic Lupus Erythematosus (SLE) and</span>
+<span id="cb35-363"><a href="#cb35-363" aria-hidden="true" tabindex="-1"></a>healthy controls.</span>
+<span id="cb35-364"><a href="#cb35-364" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-365"><a href="#cb35-365" aria-hidden="true" tabindex="-1"></a><span class="fu">## 2.1 Gene Expression data(`expr_df_matched`)</span></span>
+<span id="cb35-366"><a href="#cb35-366" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-367"><a href="#cb35-367" aria-hidden="true" tabindex="-1"></a>This dataset contains normalized gene expression values obtained from</span>
+<span id="cb35-368"><a href="#cb35-368" aria-hidden="true" tabindex="-1"></a>pre-processed microarray data. It includes **92,343 probeset IDs</span>
+<span id="cb35-369"><a href="#cb35-369" aria-hidden="true" tabindex="-1"></a>(features)** measured across **1,820 patient samples**. Each row</span>
+<span id="cb35-370"><a href="#cb35-370" aria-hidden="true" tabindex="-1"></a>represents a specific probeset ID, and each column corresponds to an</span>
+<span id="cb35-371"><a href="#cb35-371" aria-hidden="true" tabindex="-1"></a>individual patient sample. The expression data has been matched to the</span>
+<span id="cb35-372"><a href="#cb35-372" aria-hidden="true" tabindex="-1"></a>clinical metadata and prepared for downstream differential expression</span>
+<span id="cb35-373"><a href="#cb35-373" aria-hidden="true" tabindex="-1"></a>analysis and predictive modelling.</span>
+<span id="cb35-374"><a href="#cb35-374" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-377"><a href="#cb35-377" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
+<span id="cb35-378"><a href="#cb35-378" aria-hidden="true" tabindex="-1"></a><span class="fu">head</span>(expr_df_matched)[,<span class="dv">1</span><span class="sc">:</span><span class="dv">5</span>]</span>
+<span id="cb35-379"><a href="#cb35-379" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb35-380"><a href="#cb35-380" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-381"><a href="#cb35-381" aria-hidden="true" tabindex="-1"></a><span class="fu">## 2.2 Clinical Data (`pheno_clean`)</span></span>
+<span id="cb35-382"><a href="#cb35-382" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-383"><a href="#cb35-383" aria-hidden="true" tabindex="-1"></a>The clinical dataset includes detailed **phenotypic and demographic</span>
+<span id="cb35-384"><a href="#cb35-384" aria-hidden="true" tabindex="-1"></a>information** for the same set of patient samples. It contains variables</span>
+<span id="cb35-385"><a href="#cb35-385" aria-hidden="true" tabindex="-1"></a>such as:</span>
+<span id="cb35-386"><a href="#cb35-386" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-387"><a href="#cb35-387" aria-hidden="true" tabindex="-1"></a><span class="ss">-   </span>**group:** Disease status (SLE or Normal)</span>
+<span id="cb35-388"><a href="#cb35-388" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-389"><a href="#cb35-389" aria-hidden="true" tabindex="-1"></a><span class="ss">-   </span>**age_at_baseline:** Age of patient at baseline</span>
+<span id="cb35-390"><a href="#cb35-390" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-391"><a href="#cb35-391" aria-hidden="true" tabindex="-1"></a><span class="ss">-   </span>**sex, race, region:** Demographic information</span>
+<span id="cb35-392"><a href="#cb35-392" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-393"><a href="#cb35-393" aria-hidden="true" tabindex="-1"></a><span class="ss">-   </span>**batch, time:** Technical variables</span>
+<span id="cb35-394"><a href="#cb35-394" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-395"><a href="#cb35-395" aria-hidden="true" tabindex="-1"></a><span class="ss">-   </span>**adna_at_baseline:** Anti-dsDNA antibody status (Positive/Negative)</span>
+<span id="cb35-396"><a href="#cb35-396" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-397"><a href="#cb35-397" aria-hidden="true" tabindex="-1"></a><span class="ss">-   </span>**antidsdna_at_baseline:** Anti-dsDNA antibody titer (IU/mL)</span>
+<span id="cb35-398"><a href="#cb35-398" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-399"><a href="#cb35-399" aria-hidden="true" tabindex="-1"></a><span class="ss">-   </span>**c3, c3_status, c4, c4_status:** Complement protein levels and</span>
+<span id="cb35-400"><a href="#cb35-400" aria-hidden="true" tabindex="-1"></a>    status</span>
+<span id="cb35-401"><a href="#cb35-401" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-402"><a href="#cb35-402" aria-hidden="true" tabindex="-1"></a><span class="ss">-   </span>**sledai_at_baseline:** SLE Disease Activity Index score at baseline</span>
+<span id="cb35-403"><a href="#cb35-403" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-404"><a href="#cb35-404" aria-hidden="true" tabindex="-1"></a>The dataset was cleaned to remove unnecessary prefixes and placeholder</span>
+<span id="cb35-405"><a href="#cb35-405" aria-hidden="true" tabindex="-1"></a>values (e.g. <span class="in">`&quot;--&quot;`</span>), and missing values were converted to <span class="in">`NA`</span>. The</span>
+<span id="cb35-406"><a href="#cb35-406" aria-hidden="true" tabindex="-1"></a>clinical variables were formatted appropriately for statistical analysis</span>
+<span id="cb35-407"><a href="#cb35-407" aria-hidden="true" tabindex="-1"></a>and machine learning.</span>
+<span id="cb35-408"><a href="#cb35-408" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-409"><a href="#cb35-409" aria-hidden="true" tabindex="-1"></a>These two datasets were merged based on sample identifiers to enable</span>
+<span id="cb35-410"><a href="#cb35-410" aria-hidden="true" tabindex="-1"></a>integrated analysis of gene expression profiles and clinical features.</span>
+<span id="cb35-411"><a href="#cb35-411" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-414"><a href="#cb35-414" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
+<span id="cb35-415"><a href="#cb35-415" aria-hidden="true" tabindex="-1"></a><span class="fu">head</span>(pheno_clean)</span>
+<span id="cb35-416"><a href="#cb35-416" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb35-417"><a href="#cb35-417" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-420"><a href="#cb35-420" aria-hidden="true" tabindex="-1"></a><span class="in">```{r}</span></span>
+<span id="cb35-421"><a href="#cb35-421" aria-hidden="true" tabindex="-1"></a><span class="co"># Save cleaned datasets</span></span>
+<span id="cb35-422"><a href="#cb35-422" aria-hidden="true" tabindex="-1"></a><span class="fu">saveRDS</span>(expr_df_matched, <span class="at">file =</span> <span class="st">&quot;data/expr_df_matched.rds&quot;</span>)</span>
+<span id="cb35-423"><a href="#cb35-423" aria-hidden="true" tabindex="-1"></a><span class="fu">saveRDS</span>(pheno_clean, <span class="at">file =</span> <span class="st">&quot;data/pheno_clean.rds&quot;</span>)</span>
+<span id="cb35-424"><a href="#cb35-424" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
 </code><button title="Copy to Clipboard" class="code-copy-button" data-in-quarto-modal><i class="bi"></i></button></pre></div>
 </div></div></div></div></div>
 </div> <!-- /content -->
