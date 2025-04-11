@@ -1,0 +1,443 @@
+---
+title: "Analysis(DE,Plot)"
+author: "ruinan"
+format:
+  html:
+    toc: true
+    toc-location: left
+    toc-depth: 3
+    embed-resources: true
+    code-fold: true       
+    code-tools: true
+editor: source             
+---
+```{r message=FALSE, warning=FALSE}
+library(dplyr)
+library(knitr)
+library(limma)
+library(DT)
+library(readr)
+library(knitr)
+library(tidyr)
+library(ggplot2)
+library(ggcorrplot)
+
+```
+# 3. Variable Selection Rationale
+
+We selected **SLEDAI**, **C3**, and **C4** as our core clinical indicators for risk grouping and downstream differential expression analysis based on their biological importance and widespread use in lupus research and clinical practice.
+
+The table below summarizes the full names, biological functions, cutoff thresholds, and supporting references of each variable:
+
+```{=html}
+<table border="1" style="width:100%; border-collapse: collapse;">
+  <tr>
+    <th>Variable</th>
+    <th>Full Name</th>
+    <th>Biological Role</th>
+    <th>Cutoff Threshold</th>
+    <th>Reference</th>
+  </tr>
+  <tr>
+    <td>SLEDAI</td>
+    <td>Systemic Lupus Erythematosus Disease Activity Index</td>
+    <td>Measures lupus disease activity. Higher scores indicate more active disease.</td>
+    <td>&ge; 10 (High Risk)</td>
+    <td>Bombardier et al., 1992; Petri et al., 2005</td>
+  </tr>
+  <tr>
+    <td>C3</td>
+    <td>Complement Component 3</td>
+    <td>Immune protein; lower levels indicate increased immune complex activation.</td>
+    <td>&lt; 0.9 g/L (High Risk)</td>
+    <td>Walport, 2001; Yang et al., 2020</td>
+  </tr>
+  <tr>
+    <td>C4</td>
+    <td>Complement Component 4</td>
+    <td>Works with C3; its reduction also reflects lupus disease activity.</td>
+    <td>&lt; 0.1 g/L (High Risk)</td>
+    <td>Walport, 2001; Yang et al., 2020</td>
+  </tr>
+</table>
+```
+
+# 4. Data Analysis
+## 4.1 Simple EDA
+#### Read the data again and check if it was successfully pulled. Perform data composition and clean up necessary NA values for simple answers.
+
+```{r  echo=FALSE, message=FALSE, warning=FALSE}
+
+expr_df_matched <- readRDS("E:/data3888/cl/expr_df_matched.rds")
+pheno_clean <- readRDS("E:/data3888/cl/pheno_clean.rds")
+
+```
+
+```{r}
+# View NA value
+na_summary <- data.frame(
+  Variable = c("SLEDAI", "C3", "C4"),
+  NA_Count = c(
+    sum(is.na(pheno_clean$sledai_at_baseline)),
+    sum(is.na(pheno_clean$c3)),
+    sum(is.na(pheno_clean$c4))
+  )
+)
+
+
+datatable(na_summary,
+          caption = "NA Count Summary for Clinical Variables",
+          options = list(pageLength = 5, autoWidth = TRUE))
+
+```
+
+
+
+
+```{r}
+#Replace NA value with median to ensure dimensional consistency.
+median_sledai <- median(pheno_clean$sledai_at_baseline, na.rm = TRUE)
+median_c3 <- median(pheno_clean$c3, na.rm = TRUE)
+median_c4 <- median(pheno_clean$c4, na.rm = TRUE)
+
+pheno_clean <- pheno_clean %>%
+  mutate(
+    sledai_at_baseline = ifelse(is.na(sledai_at_baseline), median_sledai, sledai_at_baseline),
+    c3 = ifelse(is.na(c3), median_c3, c3),
+    c4 = ifelse(is.na(c4), median_c4, c4)
+  )
+
+summary_df <- as.data.frame(summary(pheno_clean))
+
+datatable(summary_df,
+          caption = "Summary Statistics After NA Imputation",
+          options = list(pageLength = 10, autoWidth = TRUE))
+```
+
+## 4.1.2Variable distribution
+### We created histograms to understand the underlying distribution of each clinical variable. It helps us determine whether the data is skewed or symmetrical, and whether a threshold-based grouping is reasonable.
+
+```{r}
+
+
+pheno_long <- pheno_clean %>%
+  select(SLEDAI = sledai_at_baseline, C3 = c3, C4 = c4) %>%
+  pivot_longer(cols = everything(), names_to = "Variable", values_to = "Value")
+
+ggplot(pheno_long, aes(x = Value)) +
+  geom_histogram(bins = 30, fill = "#0073C2FF", color = "white") +
+  facet_wrap(~Variable, scales = "free") +
+  labs(title = "Distribution of Clinical Variables",
+       x = "Value",
+       y = "Frequency") +
+  theme_minimal()
+
+```
+### Boxplot of Clinical Variables
+### We can see that SLEDAI distinguishes the activity levels between samples very clearly. It is one of the core indicators of group modeling
+
+```{r}
+ggplot(pheno_long, aes(x = "", y = Value)) +
+  geom_boxplot(fill = "#f9844a") +
+  facet_wrap(~Variable, scales = "free_y") +  
+  labs(title = "Boxplot of Clinical Variables ",
+       x = "",
+       y = "Value") +
+  theme_minimal()
+
+```
+
+## 4.1.3Correlation Between Clinical Variables
+### C3 and C4: strongly positively correlated (r=0.71), biologically consistent with the immune complement system.
+### SLEDAI and C3: Negative correlation (r=-0.31)
+### SLEDAI and C4: Negative correlation (r=-0.27)
+### It can be seen that there is no multicollinearity among the three variables, which can be used together for grouping and modeling. And consistent with the literature, the higher the activity of SLE, the lower the complement.
+
+```{r}
+
+
+cor_vars <- pheno_clean %>%
+  select(SLEDAI = sledai_at_baseline, C3 = c3, C4 = c4)
+
+cor_matrix <- cor(cor_vars, use = "complete.obs", method = "pearson")
+
+ggcorrplot(cor_matrix, 
+           lab = TRUE,
+           type = "lower", 
+           lab_size = 4,
+           title = "Correlation Matrix of Clinical Variables",
+           colors = c("#B2182B", "white", "#2166AC"))
+
+```
+## More Display - Personnel Variables Display
+### The sample population is predominantly female (1620 out of 1750), which is consistent with the epidemiology of systemic lupus erythematosus (SLE), a disease known to disproportionately affect women. This supports the clinical representativeness of the dataset and suggests that sex may serve as a useful covariate in downstream modeling.
+
+```{r}
+
+if("sex" %in% names(pheno_clean)) {
+  sex_table <- as.data.frame(table(pheno_clean$sex))
+  colnames(sex_table) <- c("Sex", "Count")
+  
+  datatable(sex_table,
+            caption = "Sex Distribution in the Sample",
+            options = list(pageLength = 5, autoWidth = TRUE))
+}
+
+if("age" %in% names(pheno_clean)) {
+  ggplot(pheno_clean, aes(x = age)) +
+    geom_histogram(bins = 30, fill = "#00AFBB", color = "white") +
+    labs(title = "Age Distribution", x = "Age", y = "Frequency") +
+    theme_minimal()
+}
+
+```
+
+
+
+## 4.2 Difference Analysis
+### 4.2.1Exploration of risk grouping
+#### According to the conclusions of Anian's data cleaning and the references in the paper. Risk grouping is performed for the three important indicators of SLE activity index, C3, and C4.
+
+```{r}
+
+
+#Create risk classification based on different clinical indicators
+pheno_clean$risk_group_sledai <- ifelse(
+  pheno_clean$sledai_at_baseline >= 10, "HighRisk_SLEDAI", "LowRisk_SLEDAI"
+)
+pheno_clean$risk_group_c3 <- ifelse(
+  pheno_clean$c3 < 0.9, "HighRisk_C3", "LowRisk_C3"
+)
+pheno_clean$risk_group_c4 <- ifelse(
+  pheno_clean$c4 < 0.1, "HighRisk_C4", "LowRisk_C4"
+)
+
+#Calculate the sample size for each risk group
+df_sledai = as_tibble(table(pheno_clean$risk_group_sledai), .name_repair = "minimal")
+df_c3 = as_tibble(table(pheno_clean$risk_group_c3), .name_repair = "minimal")
+df_c4 = as_tibble(table(pheno_clean$risk_group_c4), .name_repair = "minimal")
+
+
+colnames(df_sledai) = c("Group", "Count_SLEDAI")
+colnames(df_c3) = c("Group", "Count_C3")
+colnames(df_c4) = c("Group", "Count_C4")
+
+
+df_combined_sledai_c3 = full_join(df_sledai, df_c3, by = "Group")
+df_combined = full_join(df_combined_sledai_c3, df_c4, by = "Group")
+
+kable(df_combined, caption = "Risk Group Statistics Based on SLEDAI, C3, and C4 Levels")
+
+```
+
+### 4.2.2 Differential analysis of SLEDAI risk grouping
+#### The selection of threshold is based on data cleaning and the support of geo sourced literature. 2.And select significant genes based on the significance level of p<0.05.
+
+
+```{r}
+
+threshold_sledai <- 10
+pheno_clean$risk_group_SLEDAI <- ifelse(pheno_clean$sledai_at_baseline >= threshold_sledai, "HighRisk_SLEDAI", "LowRisk_SLEDAI")
+
+
+design_sledai <- model.matrix(~ pheno_clean$risk_group_SLEDAI)
+
+#Fit limma model
+fit_sledai <- lmFit(expr_df_matched, design_sledai)
+
+#Applying eBayes method
+fit_sledai <- eBayes(fit_sledai)
+
+#Extract differentially expressed genes
+results_sledai <- topTable(fit_sledai, coef=2, n=Inf)  
+results_sledai_filtered <- results_sledai[results_sledai$adj.P.Val < 0.05, ]  
+
+#Create an interactive table using the DT package
+datatable(round(results_sledai_filtered, 2), 
+          options = list(pageLength = 10, autoWidth = TRUE),
+          caption = "Significant Differentially Expressed Genes in SLEDAI (p < 0.05)")
+
+```
+
+### 4.2.3 Differential analysis of C3 risk grouping
+#### Process, threshold setting, and significance level setting are consistent with 4.2.1
+
+```{r message=FALSE, warning=FALSE}
+
+threshold_c3 <- 0.9
+
+pheno_clean$risk_group_C3 <- ifelse(pheno_clean$c3 < threshold_c3, "HighRisk_C3", "LowRisk_C3")
+
+
+design_c3 <- model.matrix(~ pheno_clean$risk_group_C3)
+
+fit_c3 <- lmFit(expr_df_matched, design_c3)
+
+fit_c3 <- eBayes(fit_c3)
+
+
+results_c3 <- topTable(fit_c3, coef=2, n=Inf)  
+results_c3_filtered <- results_c3[results_c3$adj.P.Val < 0.05, ]  
+
+
+datatable(round(results_c3_filtered, 2), 
+          options = list(pageLength = 10, autoWidth = TRUE),
+          caption = "Significant Differentially Expressed Genes in C3 Analysis (p < 0.05)")
+
+```
+
+### 4.2.4 Differential analysis of C4 risk grouping
+#### Process, threshold setting, and significance level setting are consistent with 4.2.1
+
+```{r}
+# 假设C4得分阈值是0.1
+threshold_c4 <- 0.1
+
+# 创建风险分组列
+pheno_clean$risk_group_C4 <- ifelse(pheno_clean$c4 < threshold_c4, "HighRisk_C4", "LowRisk_C4")
+
+# 为 C4 风险分组设置设计矩阵
+design_c4 <- model.matrix(~ pheno_clean$risk_group_C4)
+
+# 拟合 limma 模型
+fit_c4 <- lmFit(expr_df_matched, design_c4)
+
+# 应用 eBayes 方法
+fit_c4 <- eBayes(fit_c4)
+
+# 提取差异表达的基因
+results_c4 <- topTable(fit_c4, coef=2, n=Inf)  # 提取所有基因
+results_c4_filtered <- results_c4[results_c4$adj.P.Val < 0.05, ]  # 筛选 p 值小于 0.05 的基因
+
+# 使用 DT 包来创建一个交互式表格
+datatable(round(results_c4_filtered, 2), 
+          options = list(pageLength = 10, autoWidth = TRUE),
+          caption = "Significant Differentially Expressed Genes in C4 Analysis (p < 0.05)")
+
+
+```
+
+## 4.3 Merge common significant genes
+#### Merge and display the common significant genes of the three risk groups, so that the selected common significant genes under the three high reference indicators will definitely have stronger predictive performance.
+
+
+```{r}
+#Screen genes with p-values less than 0.05 in each analysis group
+significant_sledai <- results_sledai[results_sledai$adj.P.Val < 0.05,]
+significant_c3 <- results_c3[results_c3$adj.P.Val < 0.05,]
+significant_c4 <- results_c4[results_c4$adj.P.Val < 0.05,]
+
+#Find the intersection using gene names
+common_genes <- Reduce(intersect, list(rownames(significant_sledai), 
+                                       rownames(significant_c3), 
+                                       rownames(significant_c4)))
+
+#Can create a data box containing these common genetic information
+common_genes_data <- data.frame(
+  Gene = common_genes,
+  PVal_SLEDAI = significant_sledai[common_genes, "adj.P.Val", drop = FALSE],
+  PVal_C3 = significant_c3[common_genes, "adj.P.Val", drop = FALSE],
+  PVal_C4 = significant_c4[common_genes, "adj.P.Val", drop = FALSE]
+)
+
+
+datatable(common_genes_data, 
+          options = list(pageLength = 10, autoWidth = TRUE),
+          caption = "Common Significant Genes Across SLEDAI, C3, and C4 Analyses")
+
+```
+
+
+
+```{r}
+# 保存筛选后的基因数据到 CSV 文件
+write.csv(common_genes_data, "Common_Significant_Genes.csv", row.names = FALSE)
+
+```
+# 5.Interactive chart display
+## 5.1. Interactive volcano map presentation
+#### To avoid excessive rendering complexity in presenting files, only genes with good performance in common differences were displayed. Avoiding the occurrence of lagging situations.
+
+```{r}
+
+results_sledai$Gene <- rownames(results_sledai)
+results_sledai$Time <- "SLEDAI"
+
+results_c3$Gene <- rownames(results_c3)
+results_c3$Time <- "C3"
+
+results_c4$Gene <- rownames(results_c4)
+results_c4$Time <- "C4"
+
+
+volcano_all <- rbind(results_sledai, results_c3, results_c4)
+
+
+volcano_all$IsCommon <- ifelse(volcano_all$Gene %in% common_genes, "Common", "NotCommon")
+
+
+volcano_common <- subset(volcano_all, IsCommon == "Common")
+
+
+library(ggplot2)
+library(plotly)
+
+p_common <- ggplot(volcano_common, aes(x = logFC, y = -log10(P.Value))) +
+  geom_point(aes(color = Time, text = Gene), size = 1.5, alpha = 0.8) +
+  facet_wrap(~ Time) +
+  labs(x = "logFC", y = "-log10(p value)", title = "Common Significant Genes") +
+  theme_minimal()
+
+
+p_interactive <- ggplotly(p_common, tooltip = "text")
+p_interactive
+
+
+```
+
+## 5.2. MA interaction diagram presentation
+#### Presented in the form of MA charts, the data filtering is consistent with volcano charts.
+
+```{r}
+
+
+p_ma <- ggplot(volcano_common, aes(x = AveExpr, y = logFC)) +
+  geom_point(aes(color = Time, text = Gene), size = 1.5, alpha = 0.8) +
+  facet_wrap(~ Time) +
+  labs(x = "Average Expression (log2)", y = "log2 Fold Change", title = "MA Plot - Common DEGs") +
+  theme_minimal()
+
+p_ma_interactive <- ggplotly(p_ma, tooltip = "text")
+p_ma_interactive
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
