@@ -451,6 +451,7 @@ dotplot(go_enrich, showCategory = 10, title = "GO Enrichment (Biological Process
 dotplot(kegg_enrich, showCategory = 10, title = "KEGG Pathway Enrichment") + theme_minimal()
 
 
+
 ```
 
 
@@ -459,7 +460,7 @@ dotplot(kegg_enrich, showCategory = 10, title = "KEGG Pathway Enrichment") + the
 ## 5.1. Interactive volcano map presentation
  To avoid excessive rendering complexity in presenting files, only genes with good performance in common differences were displayed. Avoiding the occurrence of lagging situations.
 
-```{r}
+```{r echo=FALSE, message=FALSE, warning=FALSE}
 
 results_sledai$Gene <- rownames(results_sledai)
 results_sledai$Time <- "SLEDAI"
@@ -499,7 +500,7 @@ p_interactive
 ## 5.2. MA interaction diagram presentation
  Presented in the form of MA charts, the data filtering is consistent with volcano charts.
 
-```{r}
+```{r echo=FALSE, message=FALSE, warning=FALSE}
 
 
 p_ma <- ggplot(volcano_common, aes(x = AveExpr, y = logFC)) +
