@@ -21,7 +21,6 @@ library(knitr)
 library(tidyr)
 library(ggplot2)
 library(ggcorrplot)
-
 ```
 # 3. Variable Selection Rationale
 
@@ -59,12 +58,19 @@ The table below summarizes the full names, biological functions, cutoff threshol
     <td>&lt; 0.1 g/L (High Risk)</td>
     <td>Walport, 2001; Yang et al., 2020</td>
   </tr>
+  <tr>
+    <td>Anti-dsDNA</td>
+    <td>Anti-double-stranded DNA Antibody</td>
+    <td>Autoantibody used in lupus diagnosis; higher titers indicate more severe immune response.</td>
+    <td>&ge; 30 IU/mL = Positive; &lt; 30 IU/mL = Negative</td>
+    <td>Pisetsky, 2017; GSE88884 Processing Guide</td>
+  </tr>
 </table>
 ```
 
 # 4. Data Analysis
 ## 4.1 Simple EDA
-#### Read the data again and check if it was successfully pulled. Perform data composition and clean up necessary NA values for simple answers.
+ Read the data again and check if it was successfully pulled. Perform data composition and clean up necessary NA values for simple answers.
 
 ```{r  echo=FALSE, message=FALSE, warning=FALSE}
 
@@ -74,10 +80,13 @@ pheno_clean <- readRDS("E:/data3888/cl/pheno_clean.rds")
 ```
 
 
-
+Then, To reduce skewness and stabilize variance across samples, we applied log2 normalization to the expression matrix (`expr_df_matched`). This method is commonly used for gene expression data and avoids the need for additional quantile normalization packages.
 
 
 ```{r}
+#normalization
+expr_df_matched <- log2(expr_df_matched + 1)
+
 #napart
 na_counts <- sapply(pheno_clean, function(x) sum(is.na(x)))
 na_table <- data.frame(Column = names(na_counts), Number_of_NA_Values = na_counts)
@@ -94,8 +103,7 @@ expr_df_matched <- expr_df_matched[, shared_samples]
 
 
 ## 4.1.2Variable distribution
-### We created histograms to understand the underlying distribution of each clinical variable. It helps us determine whether the data is skewed or symmetrical, and whether a threshold-based grouping is reasonable.
-=======
+ We created histograms to understand the underlying distribution of each clinical variable. It helps us determine whether the data is skewed or symmetrical, and whether a threshold-based grouping is reasonable.
 
 
 ```{r}
@@ -115,7 +123,7 @@ ggplot(pheno_long, aes(x = Value)) +
 
 ```
 ### Boxplot of Clinical Variables
-### We can see that SLEDAI distinguishes the activity levels between samples very clearly. It is one of the core indicators of group modeling
+We can see that SLEDAI distinguishes the activity levels between samples very clearly. It is one of the core indicators of group modeling
 
 ```{r}
 ggplot(pheno_long, aes(x = "", y = Value)) +
@@ -129,10 +137,10 @@ ggplot(pheno_long, aes(x = "", y = Value)) +
 ```
 
 ## 4.1.3Correlation Between Clinical Variables
-### C3 and C4: strongly positively correlated (r=0.71), biologically consistent with the immune complement system.
-### SLEDAI and C3: Negative correlation (r=-0.31)
-### SLEDAI and C4: Negative correlation (r=-0.27)
-### It can be seen that there is no multicollinearity among the three variables, which can be used together for grouping and modeling. And consistent with the literature, the higher the activity of SLE, the lower the complement.
+ C3 and C4: strongly positively correlated (r=0.71), biologically consistent with the immune complement system.
+ SLEDAI and C3: Negative correlation (r=-0.31)
+ SLEDAI and C4: Negative correlation (r=-0.27)
+ It can be seen that there is no multicollinearity among the three variables, which can be used together for grouping and modeling. And consistent with the literature, the higher the activity of SLE, the lower the complement.
 
 ```{r}
 
@@ -150,8 +158,8 @@ ggcorrplot(cor_matrix,
            colors = c("#B2182B", "white", "#2166AC"))
 
 ```
-## More Display - Personnel Variables Display
-### The sample population is predominantly female (1620 out of 1750), which is consistent with the epidemiology of systemic lupus erythematosus (SLE), a disease known to disproportionately affect women. This supports the clinical representativeness of the dataset and suggests that sex may serve as a useful covariate in downstream modeling.
+## 4.1.4 More Display - Personnel Variables Display
+ The sample population is predominantly female (1620 out of 1750), which is consistent with the epidemiology of systemic lupus erythematosus (SLE), a disease known to disproportionately affect women. This supports the clinical representativeness of the dataset and suggests that sex may serve as a useful covariate in downstream modeling.
 
 ```{r}
 
@@ -175,89 +183,84 @@ if("age" %in% names(pheno_clean)) {
 
 
 
-## 4.1.2Variable distribution
-### We created histograms to understand the underlying distribution of each clinical variable. It helps us determine whether the data is skewed or symmetrical, and whether a threshold-based grouping is reasonable.
+# 4.2baseline model
 
 ```{r}
+# 创建 SLEDAI 风险分组
+pheno_clean$risk_group_SLEDAI <- ifelse(
+  pheno_clean$sledai_at_baseline >= 10, "HighRisk_SLEDAI", "LowRisk_SLEDAI"
+)
 
+# 设置 baseline 所需变量
+baseline_vars <- c("c3", "c4", "antidsdna_at_baseline", "risk_group_SLEDAI")
 
-pheno_long <- pheno_clean %>%
-  select(SLEDAI = sledai_at_baseline, C3 = c3, C4 = c4) %>%
-  pivot_longer(cols = everything(), names_to = "Variable", values_to = "Value")
+# 筛选不含 NA 的样本
+pheno_baseline <- pheno_clean[complete.cases(pheno_clean[, baseline_vars]), ]
 
-ggplot(pheno_long, aes(x = Value)) +
-  geom_histogram(bins = 30, fill = "#0073C2FF", color = "white") +
-  facet_wrap(~Variable, scales = "free") +
-  labs(title = "Distribution of Clinical Variables",
-       x = "Value",
-       y = "Frequency") +
-  theme_minimal()
+# 确保因变量为 factor（分类变量），设定低风险为 reference
+pheno_baseline$risk_group_SLEDAI <- factor(pheno_baseline$risk_group_SLEDAI,
+                                           levels = c("LowRisk_SLEDAI", "HighRisk_SLEDAI"))
 
-```
-### Boxplot of Clinical Variables
-### We can see that SLEDAI distinguishes the activity levels between samples very clearly. It is one of the core indicators of group modeling
+# 构建 baseline logistic 模型
+baseline_model <- glm(risk_group_SLEDAI ~ c3 + c4 + antidsdna_at_baseline,
+                      data = pheno_baseline,
+                      family = binomial)
 
-```{r}
-ggplot(pheno_long, aes(x = "", y = Value)) +
-  geom_boxplot(fill = "#f9844a") +
-  facet_wrap(~Variable, scales = "free_y") +  
-  labs(title = "Boxplot of Clinical Variables ",
-       x = "",
-       y = "Value") +
-  theme_minimal()
+# 预测 & 转换
+baseline_prob <- predict(baseline_model, type = "response")
+baseline_pred <- ifelse(baseline_prob > 0.5, "HighRisk_SLEDAI", "LowRisk_SLEDAI")
+baseline_pred <- factor(baseline_pred, levels = levels(pheno_baseline$risk_group_SLEDAI))
 
-```
-
-## 4.1.3Correlation Between Clinical Variables
-### C3 and C4: strongly positively correlated (r=0.71), biologically consistent with the immune complement system.
-### SLEDAI and C3: Negative correlation (r=-0.31)
-### SLEDAI and C4: Negative correlation (r=-0.27)
-### It can be seen that there is no multicollinearity among the three variables, which can be used together for grouping and modeling. And consistent with the literature, the higher the activity of SLE, the lower the complement.
-
-```{r}
-
-
-cor_vars <- pheno_clean %>%
-  select(SLEDAI = sledai_at_baseline, C3 = c3, C4 = c4)
-
-cor_matrix <- cor(cor_vars, use = "complete.obs", method = "pearson")
-
-ggcorrplot(cor_matrix, 
-           lab = TRUE,
-           type = "lower", 
-           lab_size = 4,
-           title = "Correlation Matrix of Clinical Variables",
-           colors = c("#B2182B", "white", "#2166AC"))
-
-```
-## More Display - Personnel Variables Display
-### The sample population is predominantly female (1620 out of 1750), which is consistent with the epidemiology of systemic lupus erythematosus (SLE), a disease known to disproportionately affect women. This supports the clinical representativeness of the dataset and suggests that sex may serve as a useful covariate in downstream modeling.
-
-```{r}
-
-if("sex" %in% names(pheno_clean)) {
-  sex_table <- as.data.frame(table(pheno_clean$sex))
-  colnames(sex_table) <- c("Sex", "Count")
-  
-  datatable(sex_table,
-            caption = "Sex Distribution in the Sample",
-            options = list(pageLength = 5, autoWidth = TRUE))
-}
-
-if("age" %in% names(pheno_clean)) {
-  ggplot(pheno_clean, aes(x = age)) +
-    geom_histogram(bins = 30, fill = "#00AFBB", color = "white") +
-    labs(title = "Age Distribution", x = "Age", y = "Frequency") +
-    theme_minimal()
-}
+# 模型评估
+library(caret)
+confusion_matrix <- confusionMatrix(baseline_pred, pheno_baseline$risk_group_SLEDAI)
 
 ```
 
 
+```{r results='asis', echo=FALSE, message=FALSE, warning=FALSE}
 
-## 4.2 Difference Analysis
-### 4.2.1Exploration of risk grouping
-#### According to the conclusions of Anian's data cleaning and the references in the paper. Risk grouping is performed for the three important indicators of SLE activity index, C3, and C4.
+acc <- round(confusion_matrix$overall['Accuracy'], 3)
+kappa <- round(confusion_matrix$overall['Kappa'], 3)
+bal_acc <- round((confusion_matrix$byClass['Sensitivity'] + confusion_matrix$byClass['Specificity']) / 2, 3)
+sensitivity <- round(confusion_matrix$byClass['Sensitivity'], 3)
+specificity <- round(confusion_matrix$byClass['Specificity'], 3)
+ppv <- round(confusion_matrix$byClass['Pos Pred Value'], 3)
+npv <- round(confusion_matrix$byClass['Neg Pred Value'], 3)
+nir <- round(confusion_matrix$overall['AccuracyNull'], 3)
+pval <- format.pval(confusion_matrix$overall['AccuracyPValue'], digits = 3, eps = .001)
+
+
+cat("
+<h4 style='margin-top:20px;'> Baseline Model Performance Summary (Logistic Regression: C3 + C4 + anti-dsDNA)</h4>
+
+<table border='1' style='border-collapse: collapse; width: 100%; text-align: center;'>
+  <thead style='background-color:#f9f9f9;'>
+    <tr>
+      <th>Metric</th>
+      <th>Value</th>
+      <th>Explanation</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr><td><b>Accuracy</b></td><td>", acc, "</td><td>Overall proportion of correct predictions</td></tr>
+    <tr><td><b>Balanced Accuracy</b></td><td>", bal_acc, "</td><td>Average of Sensitivity and Specificity; accounts for class imbalance</td></tr>
+    <tr><td><b>Kappa</b></td><td>", kappa, "</td><td>Agreement between prediction and true label beyond chance</td></tr>
+    <tr><td><b>Sensitivity</b></td><td>", sensitivity, "</td><td>True Positive Rate (recall); correct identification of LowRisk patients</td></tr>
+    <tr><td><b>Specificity</b></td><td>", specificity, "</td><td>True Negative Rate; correct identification of HighRisk patients</td></tr>
+    <tr><td><b>Positive Predictive Value (PPV)</b></td><td>", ppv, "</td><td>Proportion of predicted LowRisk that were actually LowRisk</td></tr>
+    <tr><td><b>Negative Predictive Value (NPV)</b></td><td>", npv, "</td><td>Proportion of predicted HighRisk that were actually HighRisk</td></tr>
+    <tr><td><b>No Information Rate (NIR)</b></td><td>", nir, "</td><td>Accuracy of always predicting the majority class</td></tr>
+    <tr><td><b>p-value (Accuracy > NIR)</b></td><td>", pval, "</td><td>Statistical test showing if model outperforms random guess</td></tr>
+  </tbody>
+</table>
+", sep = "")
+```
+
+
+## 4.3 Difference Analysis
+### 4.3.1Exploration of risk grouping
+ According to the conclusions of Anian's data cleaning and the references in the paper. Risk grouping is performed for the three important indicators of SLE activity index, C3, and C4.
 
 ```{r}
 
@@ -291,8 +294,8 @@ kable(df_combined, caption = "Risk Group Statistics Based on SLEDAI, C3, and C4 
 
 ```
 
-### 4.2.2 Differential analysis of SLEDAI risk grouping
-#### The selection of threshold is based on data cleaning and the support of geo sourced literature. 2.And select significant genes based on the significance level of p<0.05.
+### 4.3.2 Differential analysis of SLEDAI risk grouping
+ The selection of threshold is based on data cleaning and the support of geo sourced literature. 2.And select significant genes based on the significance level of p<0.05.
 
 
 ```{r}
@@ -320,8 +323,8 @@ datatable(round(results_sledai_filtered, 2),
 
 ```
 
-### 4.2.3 Differential analysis of C3 risk grouping
-#### Process, threshold setting, and significance level setting are consistent with 4.2.1
+### 4.3.3 Differential analysis of C3 risk grouping
+ Process, threshold setting, and significance level setting are consistent with 4.2.1
 
 ```{r message=FALSE, warning=FALSE}
 
@@ -347,8 +350,8 @@ datatable(round(results_c3_filtered, 2),
 
 ```
 
-### 4.2.4 Differential analysis of C4 risk grouping
-#### Process, threshold setting, and significance level setting are consistent with 4.2.1
+### 4.3.4 Differential analysis of C4 risk grouping
+ Process, threshold setting, and significance level setting are consistent with 4.2.1
 
 ```{r}
 # 假设C4得分阈值是0.1
@@ -378,8 +381,8 @@ datatable(round(results_c4_filtered, 2),
 
 ```
 
-## 4.3 Merge common significant genes
-#### Merge and display the common significant genes of the three risk groups, so that the selected common significant genes under the three high reference indicators will definitely have stronger predictive performance.
+## 4.4 Merge common significant genes
+ Merge and display the common significant genes of the three risk groups, so that the selected common significant genes under the three high reference indicators will definitely have stronger predictive performance.
 
 
 ```{r}
@@ -410,14 +413,9 @@ datatable(common_genes_data,
 
 
 
-```{r}
-# 保存筛选后的基因数据到 CSV 文件
-write.csv(common_genes_data, "Common_Significant_Genes.csv", row.names = FALSE)
-
-```
 # 5.Interactive chart display
 ## 5.1. Interactive volcano map presentation
-#### To avoid excessive rendering complexity in presenting files, only genes with good performance in common differences were displayed. Avoiding the occurrence of lagging situations.
+ To avoid excessive rendering complexity in presenting files, only genes with good performance in common differences were displayed. Avoiding the occurrence of lagging situations.
 
 ```{r}
 
@@ -457,7 +455,7 @@ p_interactive
 ```
 
 ## 5.2. MA interaction diagram presentation
-#### Presented in the form of MA charts, the data filtering is consistent with volcano charts.
+ Presented in the form of MA charts, the data filtering is consistent with volcano charts.
 
 ```{r}
 
