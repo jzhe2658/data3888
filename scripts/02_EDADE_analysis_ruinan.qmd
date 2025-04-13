@@ -92,6 +92,89 @@ expr_df_matched <- expr_df_matched[, shared_samples]
 
 ```
 
+
+## 4.1.2Variable distribution
+### We created histograms to understand the underlying distribution of each clinical variable. It helps us determine whether the data is skewed or symmetrical, and whether a threshold-based grouping is reasonable.
+=======
+
+
+```{r}
+
+
+pheno_long <- pheno_clean %>%
+  select(SLEDAI = sledai_at_baseline, C3 = c3, C4 = c4) %>%
+  pivot_longer(cols = everything(), names_to = "Variable", values_to = "Value")
+
+ggplot(pheno_long, aes(x = Value)) +
+  geom_histogram(bins = 30, fill = "#0073C2FF", color = "white") +
+  facet_wrap(~Variable, scales = "free") +
+  labs(title = "Distribution of Clinical Variables",
+       x = "Value",
+       y = "Frequency") +
+  theme_minimal()
+
+```
+### Boxplot of Clinical Variables
+### We can see that SLEDAI distinguishes the activity levels between samples very clearly. It is one of the core indicators of group modeling
+
+```{r}
+ggplot(pheno_long, aes(x = "", y = Value)) +
+  geom_boxplot(fill = "#f9844a") +
+  facet_wrap(~Variable, scales = "free_y") +  
+  labs(title = "Boxplot of Clinical Variables ",
+       x = "",
+       y = "Value") +
+  theme_minimal()
+
+```
+
+## 4.1.3Correlation Between Clinical Variables
+### C3 and C4: strongly positively correlated (r=0.71), biologically consistent with the immune complement system.
+### SLEDAI and C3: Negative correlation (r=-0.31)
+### SLEDAI and C4: Negative correlation (r=-0.27)
+### It can be seen that there is no multicollinearity among the three variables, which can be used together for grouping and modeling. And consistent with the literature, the higher the activity of SLE, the lower the complement.
+
+```{r}
+
+
+cor_vars <- pheno_clean %>%
+  select(SLEDAI = sledai_at_baseline, C3 = c3, C4 = c4)
+
+cor_matrix <- cor(cor_vars, use = "complete.obs", method = "pearson")
+
+ggcorrplot(cor_matrix, 
+           lab = TRUE,
+           type = "lower", 
+           lab_size = 4,
+           title = "Correlation Matrix of Clinical Variables",
+           colors = c("#B2182B", "white", "#2166AC"))
+
+```
+## More Display - Personnel Variables Display
+### The sample population is predominantly female (1620 out of 1750), which is consistent with the epidemiology of systemic lupus erythematosus (SLE), a disease known to disproportionately affect women. This supports the clinical representativeness of the dataset and suggests that sex may serve as a useful covariate in downstream modeling.
+
+```{r}
+
+if("sex" %in% names(pheno_clean)) {
+  sex_table <- as.data.frame(table(pheno_clean$sex))
+  colnames(sex_table) <- c("Sex", "Count")
+  
+  datatable(sex_table,
+            caption = "Sex Distribution in the Sample",
+            options = list(pageLength = 5, autoWidth = TRUE))
+}
+
+if("age" %in% names(pheno_clean)) {
+  ggplot(pheno_clean, aes(x = age)) +
+    geom_histogram(bins = 30, fill = "#00AFBB", color = "white") +
+    labs(title = "Age Distribution", x = "Age", y = "Frequency") +
+    theme_minimal()
+}
+
+```
+
+
+
 ## 4.1.2Variable distribution
 ### We created histograms to understand the underlying distribution of each clinical variable. It helps us determine whether the data is skewed or symmetrical, and whether a threshold-based grouping is reasonable.
 
