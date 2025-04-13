@@ -1,0 +1,276 @@
+---
+title: "04_ML_modeling_anina.qmd"
+subtitle: "Place a subtitle here if needed"
+author: "(Place your name/Unikey/SID)"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+format:
+  html:
+    code-tools: true
+    code-fold: true
+    fig_caption: yes
+    number_sections: yes
+    embed-resources: true
+    theme: flatly
+    css: 
+      - https://use.fontawesome.com/releases/v5.0.6/css/all.css
+    toc: true
+    toc_depth: 4
+    toc_float: true
+execute:
+  echo: true
+  tidy: true
+---
+
+# PCA
+
+```{r load}
+pheno_clean <- readRDS("data/pheno_clean.rds")
+expr_data <- readRDS("data/expr_df_matched.rds")
+```
+
+## PCA by Batch
+
+```{r}
+library(ggplot2)
+library(factoextra)
+
+# Make sure both are character
+colnames(expr_data) <- as.character(colnames(expr_data))
+rownames(pheno_clean) <- as.character(rownames(pheno_clean))
+
+# Find common sample IDs
+common_samples <- intersect(colnames(expr_data), rownames(pheno_clean))
+
+# Subset and align both
+expr_matched <- expr_data[, common_samples]
+pheno_matched <- pheno_clean[common_samples, ]  # works since rownames match
+
+expr_t <- t(expr_matched)
+
+# Run PCA
+pca_res <- prcomp(expr_t, scale. = TRUE)
+
+# Prepare PCA plot data
+pca_df <- as.data.frame(pca_res$x[, 1:2])
+pca_df$batch <- pheno_matched$batch
+
+# Plot PCA
+library(ggplot2)
+
+ggplot(pca_df, aes(PC1, PC2, color = batch)) +
+  geom_point(alpha = 0.7, size = 2) +
+  stat_ellipse(type = "norm", size = 1.2) +  # Draw ellipses for each batch
+  scale_color_manual(values = c("ILLUMINATE-1" = "purple", "ILLUMINATE-2" = "yellow")) +
+  theme_minimal() +
+  labs(title = "PCA Colored by Batch with Ellipses",
+       subtitle = "No strong separation suggests minimal batch effect")
+
+```
+
+This PCA plot shows overlapping distributions of ILLUMINATE-1 and ILLUMINATE-2 samples. The ellipses capture the spread of each batch along the top two principal components. The lack of clear separation between ellipses suggests no dominant batch effect.\
+
+Boxplots by Batch (for a few top genes)
+
+```{r}
+library(ggplot2)
+library(reshape2)
+
+# Use top 10 most variable genes for easier plotting
+vars <- apply(expr_matched, 1, var)
+top_genes <- names(sort(vars, decreasing = TRUE))[1:10]
+expr_subset <- expr_matched[top_genes, ]
+
+# Transpose and prepare for plotting
+expr_df <- as.data.frame(t(expr_subset))
+expr_df$batch <- pheno_matched$batch
+
+# Melt for ggplot
+expr_long <- melt(expr_df, id.vars = "batch", variable.name = "Gene", value.name = "Expression")
+
+# Plot
+ggplot(expr_long, aes(x = Gene, y = Expression, fill = batch)) +
+  geom_boxplot(outlier.size = 0.5, position = "dodge") +
+  theme_minimal() +
+  labs(title = "Boxplots of Expression by Batch", x = "Top Variable Genes") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+```
+
+-   **No major batch effect** — there's no consistent shift in expression levels between ILLUMINATE-1 and ILLUMINATE-2.
+
+-   Differences, where they exist, are **gene-specific** and small.
+
+## PCA by SLEDAI Group
+
+```{r}
+# Categorize SLEDAI score
+pheno_clean$sledai_group <- cut(
+  pheno_clean$sledai_at_baseline,
+  breaks = c(-Inf, 4, 10, Inf),
+  labels = c("Mild", "Moderate", "High")
+)
+
+# Match samples
+common_samples <- intersect(colnames(expr_data), rownames(pheno_clean))
+expr_matched <- expr_data[, common_samples]
+pheno_matched <- pheno_clean[common_samples, ]
+
+# Transpose for PCA (samples = rows)
+expr_t <- t(expr_matched)
+
+pca_res <- prcomp(expr_t, scale. = TRUE)
+pca_df <- as.data.frame(pca_res$x[, 1:2])
+pca_df$sledai_group <- pheno_matched$sledai_group
+
+library(ggplot2)
+ggplot(pca_df, aes(PC1, PC2, color = sledai_group)) +
+  geom_point(size = 2, alpha = 0.7) +
+  stat_ellipse(type = "norm") +
+  scale_color_manual(values = c("Mild" = "#A6CEE3", "Moderate" = "#FDBF6F", "High" = "#E31A1C")) +
+  theme_minimal() +
+  labs(title = "PCA Colored by SLEDAI Severity Group",
+       subtitle = "Mild (0–4), Moderate (5–10), High (>10)")
+```
+
+1\. **Cluster Overlap**
+
+-   The ellipses and points **overlap heavily**, which suggests:
+
+    -   There isn’t a strong, **distinct separation** between the groups based on just PC1 and PC2.
+
+    -   This implies **gene expression profiles alone (in these two PCs)** don’t cleanly distinguish disease severity.
+
+    -   However, there may still be **subtle patterns**, or separability in higher PCs or nonlinear space.
+
+2\. **Gradient Trend**
+
+-   **Mild group (blue)** tends to occupy a more leftward region (lower PC1)
+
+-   **High group (red)** is slightly more concentrated toward the center and right
+
+-   This suggests a **possible trend** across severity, though weak — useful motivation for modeling!
+
+3\. **Biological Implication**
+
+-   Since SLEDAI is a clinical composite score from different systems (CNS, renal, skin, etc.), the gene expression signal **may be diluted or spread out**.
+
+-   But this still supports using **machine learning**, which can capture complex patterns beyond PC1/PC2.
+
+```{r}
+loadings <- pca_res$rotation  # genes x PCs
+
+# Get top contributing genes for PC1
+top_PC1 <- sort(abs(loadings[, 1]), decreasing = TRUE)[1:20]
+top_PC1_genes <- names(top_PC1)
+
+# Get top contributing genes for PC2
+top_PC2 <- sort(abs(loadings[, 2]), decreasing = TRUE)[1:20]
+top_PC2_genes <- names(top_PC2)
+
+top_genes_df <- data.frame(
+  Gene = unique(c(top_PC1_genes, top_PC2_genes)),
+  PC1_Loading = loadings[unique(c(top_PC1_genes, top_PC2_genes)), 1],
+  PC2_Loading = loadings[unique(c(top_PC1_genes, top_PC2_genes)), 2]
+)
+
+# View the top loading genes
+print(top_genes_df)
+```
+
+# Model
+
+## 1. Use Top Variable Genes
+
+✅ Simple\
+
+✅ Captures the most expressive genes\
+
+❌ May miss genes strongly related to SLEDAI but low variance
+
+```{r}
+common_samples <- intersect(colnames(expr_data), rownames(pheno_clean))
+expr_filtered <- expr_data[, common_samples]
+pheno_filtered <- pheno_clean[common_samples, ]
+
+# 3. Select top variable genes (e.g., top 500)
+gene_variances <- apply(expr_filtered, 1, var)
+top_genes <- names(sort(gene_variances, decreasing = TRUE))[1:500]
+
+# 4. Create the final expression matrix for modeling (samples x genes)
+expr_selected <- t(expr_filtered[top_genes, ])
+
+expr_df <- as.data.frame(expr_selected)
+expr_df$sledai <- pheno_filtered$sledai_at_baseline
+
+```
+
+Random Forest
+
+```{r}
+library(caret)
+set.seed(42)
+
+# Train-test split
+train_idx <- createDataPartition(expr_df$sledai, p = 0.8, list = FALSE)
+train_data <- expr_df[train_idx, ]
+test_data  <- expr_df[-train_idx, ]
+
+# Train a Random Forest regressor
+rf_model <- train(
+  sledai ~ ., data = train_data,
+  method = "rf",
+  trControl = trainControl(method = "cv", number = 5)
+)
+```
+
+```{r}
+# Predict on test set
+pred <- predict(rf_model, test_data)
+
+# Evaluate performance
+results <- postResample(pred, obs = test_data$sledai)
+print(results)  # Includes RMSE, R-squared
+```
+
+### 🧠 Interpretation
+
+-   ✅ MAE/RMSE in the range of **2–3 points** is a decent *starting point*, especially for a biological score like SLEDAI that has a limited range.
+
+-   ❌ But **R² = 0.04** means the model is **not capturing much of the variance** — it’s only slightly better than guessing the mean SLEDAI for everyone.
+
+## 2. Feature Filtering by Correlation with SLEDAI
+
+```{r}
+# Select Top 300 Genes Correlated with SLEDAI
+cor_vals <- apply(expr_filtered, 1, function(x) cor(x, pheno_filtered$sledai_at_baseline, use = "complete.obs"))
+top_corr_genes <- names(sort(abs(cor_vals), decreasing = TRUE))[1:300]
+expr_corr <- t(expr_filtered[top_corr_genes, ])
+
+# Combine with SLEDAI score
+expr_corr_df <- as.data.frame(expr_corr)
+expr_corr_df$sledai <- pheno_filtered$sledai_at_baseline
+
+set.seed(123)
+train_idx <- createDataPartition(expr_corr_df$sledai, p = 0.8, list = FALSE)
+train_data <- expr_corr_df[train_idx, ]
+test_data  <- expr_corr_df[-train_idx, ]
+
+# Train Random Forest again
+rf_model_corr <- train(
+  sledai ~ ., data = train_data,
+  method = "rf",
+  trControl = trainControl(method = "cv", number = 5)
+)
+
+# Predict and evaluate
+pred_corr <- predict(rf_model_corr, test_data)
+results_corr <- postResample(pred_corr, test_data$sledai)
+print(results_corr)
+
+```
+
+| Metric | Value | Interpretation |
+|----|----|----|
+| **RMSE** | 3.51 | Average prediction error is \~3.5 points (slightly worse than before) |
+| **MAE** | 2.56 | Average absolute error is \~2.56 points — a tiny improvement |
+| **R²** | **0.112** | ✅ Now explains **11.2% of the variance** in SLEDAI — **more than 2x better** than the previous model |
