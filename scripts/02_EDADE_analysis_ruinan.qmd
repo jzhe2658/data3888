@@ -73,45 +73,23 @@ pheno_clean <- readRDS("E:/data3888/cl/pheno_clean.rds")
 
 ```
 
-```{r}
-# View NA value
-na_summary <- data.frame(
-  Variable = c("SLEDAI", "C3", "C4"),
-  NA_Count = c(
-    sum(is.na(pheno_clean$sledai_at_baseline)),
-    sum(is.na(pheno_clean$c3)),
-    sum(is.na(pheno_clean$c4))
-  )
-)
-
-
-datatable(na_summary,
-          caption = "NA Count Summary for Clinical Variables",
-          options = list(pageLength = 5, autoWidth = TRUE))
-
-```
 
 
 
 
 ```{r}
-#Replace NA value with median to ensure dimensional consistency.
-median_sledai <- median(pheno_clean$sledai_at_baseline, na.rm = TRUE)
-median_c3 <- median(pheno_clean$c3, na.rm = TRUE)
-median_c4 <- median(pheno_clean$c4, na.rm = TRUE)
+#napart
+na_counts <- sapply(pheno_clean, function(x) sum(is.na(x)))
+na_table <- data.frame(Column = names(na_counts), Number_of_NA_Values = na_counts)
+datatable(na_table, caption = "NA Count Table for Clinical Variables")
 
-pheno_clean <- pheno_clean %>%
-  mutate(
-    sledai_at_baseline = ifelse(is.na(sledai_at_baseline), median_sledai, sledai_at_baseline),
-    c3 = ifelse(is.na(c3), median_c3, c3),
-    c4 = ifelse(is.na(c4), median_c4, c4)
-  )
+pheno_clean <- pheno_clean[complete.cases(pheno_clean), ]
 
-summary_df <- as.data.frame(summary(pheno_clean))
 
-datatable(summary_df,
-          caption = "Summary Statistics After NA Imputation",
-          options = list(pageLength = 10, autoWidth = TRUE))
+shared_samples <- intersect(colnames(expr_df_matched), rownames(pheno_clean))
+pheno_clean <- pheno_clean[shared_samples, ]
+expr_df_matched <- expr_df_matched[, shared_samples]
+
 ```
 
 ## 4.1.2Variable distribution
