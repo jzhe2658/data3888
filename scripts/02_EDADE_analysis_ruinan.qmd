@@ -73,46 +73,107 @@ pheno_clean <- readRDS("E:/data3888/cl/pheno_clean.rds")
 
 ```
 
-```{r}
-# View NA value
-na_summary <- data.frame(
-  Variable = c("SLEDAI", "C3", "C4"),
-  NA_Count = c(
-    sum(is.na(pheno_clean$sledai_at_baseline)),
-    sum(is.na(pheno_clean$c3)),
-    sum(is.na(pheno_clean$c4))
-  )
-)
-
-
-datatable(na_summary,
-          caption = "NA Count Summary for Clinical Variables",
-          options = list(pageLength = 5, autoWidth = TRUE))
-
-```
 
 
 
 
 ```{r}
-#Replace NA value with median to ensure dimensional consistency.
-median_sledai <- median(pheno_clean$sledai_at_baseline, na.rm = TRUE)
-median_c3 <- median(pheno_clean$c3, na.rm = TRUE)
-median_c4 <- median(pheno_clean$c4, na.rm = TRUE)
+#napart
+na_counts <- sapply(pheno_clean, function(x) sum(is.na(x)))
+na_table <- data.frame(Column = names(na_counts), Number_of_NA_Values = na_counts)
+datatable(na_table, caption = "NA Count Table for Clinical Variables")
 
-pheno_clean <- pheno_clean %>%
-  mutate(
-    sledai_at_baseline = ifelse(is.na(sledai_at_baseline), median_sledai, sledai_at_baseline),
-    c3 = ifelse(is.na(c3), median_c3, c3),
-    c4 = ifelse(is.na(c4), median_c4, c4)
-  )
+pheno_clean <- pheno_clean[complete.cases(pheno_clean), ]
 
-summary_df <- as.data.frame(summary(pheno_clean))
 
-datatable(summary_df,
-          caption = "Summary Statistics After NA Imputation",
-          options = list(pageLength = 10, autoWidth = TRUE))
+shared_samples <- intersect(colnames(expr_df_matched), rownames(pheno_clean))
+pheno_clean <- pheno_clean[shared_samples, ]
+expr_df_matched <- expr_df_matched[, shared_samples]
+
 ```
+
+
+## 4.1.2Variable distribution
+### We created histograms to understand the underlying distribution of each clinical variable. It helps us determine whether the data is skewed or symmetrical, and whether a threshold-based grouping is reasonable.
+=======
+
+
+```{r}
+
+
+pheno_long <- pheno_clean %>%
+  select(SLEDAI = sledai_at_baseline, C3 = c3, C4 = c4) %>%
+  pivot_longer(cols = everything(), names_to = "Variable", values_to = "Value")
+
+ggplot(pheno_long, aes(x = Value)) +
+  geom_histogram(bins = 30, fill = "#0073C2FF", color = "white") +
+  facet_wrap(~Variable, scales = "free") +
+  labs(title = "Distribution of Clinical Variables",
+       x = "Value",
+       y = "Frequency") +
+  theme_minimal()
+
+```
+### Boxplot of Clinical Variables
+### We can see that SLEDAI distinguishes the activity levels between samples very clearly. It is one of the core indicators of group modeling
+
+```{r}
+ggplot(pheno_long, aes(x = "", y = Value)) +
+  geom_boxplot(fill = "#f9844a") +
+  facet_wrap(~Variable, scales = "free_y") +  
+  labs(title = "Boxplot of Clinical Variables ",
+       x = "",
+       y = "Value") +
+  theme_minimal()
+
+```
+
+## 4.1.3Correlation Between Clinical Variables
+### C3 and C4: strongly positively correlated (r=0.71), biologically consistent with the immune complement system.
+### SLEDAI and C3: Negative correlation (r=-0.31)
+### SLEDAI and C4: Negative correlation (r=-0.27)
+### It can be seen that there is no multicollinearity among the three variables, which can be used together for grouping and modeling. And consistent with the literature, the higher the activity of SLE, the lower the complement.
+
+```{r}
+
+
+cor_vars <- pheno_clean %>%
+  select(SLEDAI = sledai_at_baseline, C3 = c3, C4 = c4)
+
+cor_matrix <- cor(cor_vars, use = "complete.obs", method = "pearson")
+
+ggcorrplot(cor_matrix, 
+           lab = TRUE,
+           type = "lower", 
+           lab_size = 4,
+           title = "Correlation Matrix of Clinical Variables",
+           colors = c("#B2182B", "white", "#2166AC"))
+
+```
+## More Display - Personnel Variables Display
+### The sample population is predominantly female (1620 out of 1750), which is consistent with the epidemiology of systemic lupus erythematosus (SLE), a disease known to disproportionately affect women. This supports the clinical representativeness of the dataset and suggests that sex may serve as a useful covariate in downstream modeling.
+
+```{r}
+
+if("sex" %in% names(pheno_clean)) {
+  sex_table <- as.data.frame(table(pheno_clean$sex))
+  colnames(sex_table) <- c("Sex", "Count")
+  
+  datatable(sex_table,
+            caption = "Sex Distribution in the Sample",
+            options = list(pageLength = 5, autoWidth = TRUE))
+}
+
+if("age" %in% names(pheno_clean)) {
+  ggplot(pheno_clean, aes(x = age)) +
+    geom_histogram(bins = 30, fill = "#00AFBB", color = "white") +
+    labs(title = "Age Distribution", x = "Age", y = "Frequency") +
+    theme_minimal()
+}
+
+```
+
+
 
 ## 4.1.2Variable distribution
 ### We created histograms to understand the underlying distribution of each clinical variable. It helps us determine whether the data is skewed or symmetrical, and whether a threshold-based grouping is reasonable.
