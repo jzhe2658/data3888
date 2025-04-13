@@ -186,32 +186,32 @@ if("age" %in% names(pheno_clean)) {
 # 4.2baseline model
 
 ```{r}
-# 创建 SLEDAI 风险分组
+
 pheno_clean$risk_group_SLEDAI <- ifelse(
   pheno_clean$sledai_at_baseline >= 10, "HighRisk_SLEDAI", "LowRisk_SLEDAI"
 )
 
-# 设置 baseline 所需变量
+
 baseline_vars <- c("c3", "c4", "antidsdna_at_baseline", "risk_group_SLEDAI")
 
-# 筛选不含 NA 的样本
+
 pheno_baseline <- pheno_clean[complete.cases(pheno_clean[, baseline_vars]), ]
 
-# 确保因变量为 factor（分类变量），设定低风险为 reference
+
 pheno_baseline$risk_group_SLEDAI <- factor(pheno_baseline$risk_group_SLEDAI,
                                            levels = c("LowRisk_SLEDAI", "HighRisk_SLEDAI"))
 
-# 构建 baseline logistic 模型
+
 baseline_model <- glm(risk_group_SLEDAI ~ c3 + c4 + antidsdna_at_baseline,
                       data = pheno_baseline,
                       family = binomial)
 
-# 预测 & 转换
+
 baseline_prob <- predict(baseline_model, type = "response")
 baseline_pred <- ifelse(baseline_prob > 0.5, "HighRisk_SLEDAI", "LowRisk_SLEDAI")
 baseline_pred <- factor(baseline_pred, levels = levels(pheno_baseline$risk_group_SLEDAI))
 
-# 模型评估
+
 library(caret)
 confusion_matrix <- confusionMatrix(baseline_pred, pheno_baseline$risk_group_SLEDAI)
 
@@ -470,33 +470,3 @@ p_ma_interactive <- ggplotly(p_ma, tooltip = "text")
 p_ma_interactive
 
 ```
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
