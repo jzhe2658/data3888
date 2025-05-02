@@ -274,3 +274,87 @@ print(results_corr)
 | **RMSE** | 3.51 | Average prediction error is \~3.5 points (slightly worse than before) |
 | **MAE** | 2.56 | Average absolute error is \~2.56 points — a tiny improvement |
 | **R²** | **0.112** | ✅ Now explains **11.2% of the variance** in SLEDAI — **more than 2x better** than the previous model |
+
+## Top genes + Clinical Variables
+
+```{r}
+# 1. Compute correlation for each gene
+cor_vals <- apply(expr_filtered, 1, function(x) cor(x, pheno_clean$sledai_at_baseline, use = "complete.obs"))
+
+# 2. Select top 300 correlated genes
+top_genes <- names(sort(abs(cor_vals), decreasing = TRUE))[1:300]
+
+# 3. Transpose for modeling (samples x genes)
+expr_top <- t(expr_filtered[top_genes, ])
+
+# 4. Match sample IDs
+common_samples <- intersect(rownames(pheno_clean), rownames(expr_top))
+expr_top <- expr_top[common_samples, ]
+pheno_matched <- pheno_clean[common_samples, ]
+
+# 5. Select useful clinical features
+clinical_vars <- c("age_at_baseline", "sex", "race", "region", 
+                   "antidsdna_at_baseline", "c3", "c4")
+
+clinical_df <- pheno_matched[, clinical_vars]
+
+# 6. Combine gene + clinical + target
+combined_df <- cbind(expr_top, clinical_df)
+combined_df$sledai <- pheno_matched$sledai_at_baseline
+
+# Use caret's dummyVars to one-hot encode categorical columns
+dummies <- dummyVars(sledai ~ ., data = combined_df)
+combined_encoded <- data.frame(predict(dummies, newdata = combined_df))
+combined_encoded$sledai <- combined_df$sledai
+
+set.seed(123)
+train_idx <- createDataPartition(combined_encoded$sledai, p = 0.8, list = FALSE)
+train_data <- combined_encoded[train_idx, ]
+test_data  <- combined_encoded[-train_idx, ]
+
+# Train Random Forest
+library(caret)
+rf_model <- train(
+  sledai ~ ., data = train_data,
+  method = "rf",
+  trControl = trainControl(method = "cv", number = 5)
+)
+
+# Predict and Evaluate
+pred <- predict(rf_model, test_data)
+results <- postResample(pred, test_data$sledai)
+print(results)
+
+varImpPlot <- varImp(rf_model)
+plot(varImpPlot, top = 20)
+```
+
+```{r}
+combined_df$sledai_group <- pheno_matched$sledai_group
+
+library(caret)
+dummies <- dummyVars(sledai_group ~ ., data = combined_df)
+combined_encoded <- data.frame(predict(dummies, newdata = combined_df))
+combined_encoded$sledai_group <- combined_df$sledai_group
+
+# Drop 'sledai' from predictors
+combined_encoded <- combined_encoded[, !colnames(combined_encoded) %in% "sledai"]
+
+set.seed(123)
+train_idx <- createDataPartition(combined_encoded$sledai_group, p = 0.8, list = FALSE)
+train_data <- combined_encoded[train_idx, ]
+test_data  <- combined_encoded[-train_idx, ]
+
+# Train model
+rf_model_multi <- train(
+  sledai_group ~ ., data = train_data,
+  method = "rf",
+  trControl = trainControl(method = "cv", number = 5)
+)
+
+# Predict and evaluate
+pred <- predict(rf_model_multi, test_data)
+confusion <- confusionMatrix(pred, test_data$sledai_group)
+print(confusion)
+
+```
