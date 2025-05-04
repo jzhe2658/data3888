@@ -347,6 +347,29 @@ print(rows_with_na)
 pheno_clean <- pheno_clean[complete.cases(pheno_clean), ]
 ```
 
+```{r}
+## Group SLEDAI Score and Align Expression Data
+
+# 1. Create a binary SLEDAI risk group (HighRisk ≥ 10)
+pheno_clean$sledai_group <- cut(
+  pheno_clean$sledai_at_baseline,
+  breaks = c(-Inf, 4, 10, Inf),
+  labels = c("Mild", "Moderate", "High")
+)
+
+# 2. Align expr_df and pheno_clean by sample ID
+colnames(expr_df_matched) <- as.character(colnames(expr_df_matched))
+rownames(pheno_clean) <- as.character(rownames(pheno_clean))
+
+# 3. Keep only common samples
+common_samples <- intersect(colnames(expr_df_matched), rownames(pheno_clean))
+expr_df_matched <- expr_df_matched[, common_samples]
+pheno_clean <- pheno_clean[common_samples, ]
+
+# 4. Confirm that everything is aligned
+stopifnot(all(colnames(expr_df_matched) == rownames(pheno_clean)))
+```
+
 # 3 Data Overview
 
 In this analysis, we used two cleaned datasets derived from the GSE88884
@@ -401,6 +424,7 @@ integrated analysis of gene expression profiles and clinical features.
 
 ```{r}
 head(pheno_clean)
+colnames(pheno_clean)
 ```
 
 ```{r}
