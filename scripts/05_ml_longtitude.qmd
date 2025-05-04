@@ -1,0 +1,209 @@
+---
+title: "DATA3888_2025 Lab Week (place number here)"
+subtitle: "Place a subtitle here if needed"
+author: "(Place your name/Unikey/SID)"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+format:
+  html:
+    code-tools: true
+    code-fold: true
+    fig_caption: yes
+    number_sections: yes
+    embed-resources: true
+    theme: flatly
+    css: 
+      - https://use.fontawesome.com/releases/v5.0.6/css/all.css
+    toc: true
+    toc_depth: 4
+    toc_float: true
+execute:
+  echo: true
+  tidy: true
+---
+
+# 1 Load the data
+
+```{r}
+# Load the expression matrix with symbols
+eMat <- readRDS("data/eMat_with_symbols.rds")
+
+# View dimensions and a preview
+dim(eMat)
+#head(eMat) 
+```
+
+```{r}
+fdata <- readRDS("data/fData.rds")
+pdata_final <- readRDS("data/pData_final.rds")
+
+#head(pdata_final)
+```
+
+```{r}
+library(dplyr)  
+eMat_t <- t(eMat)
+
+eMat_t_df <- as.data.frame(t(eMat))
+eMat_t_df$sample_id <- rownames(eMat_t_df)
+
+pdata_final$sample_id <- rownames(pdata_final)
+
+merged_df <- dplyr::inner_join(pdata_final, eMat_t_df, by = "sample_id")
+rownames(merged_df) <- merged_df$sample_id
+
+dim(merged_df)
+# head(merged_df)
+```
+
+### 🔁 How to Construct the `flare_next` Label
+
+We aim to train a model that **uses gene expression and clinical data from the current visit to predict whether a flare (SLEDAI ≥ 5) will occur at the next visit**.
+
+```{r}
+merged_df <- merged_df %>%
+  mutate(
+    visit_count = as.numeric(visit_count),
+    sledai = as.numeric(sledai),
+    patient_id = as.character(patient_id)
+  )
+
+merged_long <- merged_df %>%
+  filter(group_type == "SLE") %>%
+  arrange(patient_id, visit_count) %>%
+  group_by(patient_id) %>%
+  mutate(
+    sledai_next = lead(sledai),
+    flare_next = ifelse(lead(sledai) >= 5, 1, 0),
+    visit_next = lead(visit_count)
+  ) %>%
+  ungroup() %>%
+  filter(!is.na(sledai_next))
+```
+
+# 2 Gene-based flare prediction (Current Time Point Only)
+
+```{r}
+gene_cols <- setdiff(colnames(merged_long), c(
+  "sample_id", "illumina_id", "geo_accession", "group_type", "patient_id",
+  "visit", "batch", "batch_replicate", "set", "visit_count", "cumulative_time",
+  "days_since_diagnosis", "days_since_last_visit", "days_between_diagnosis_and_last_visit",
+  "disease state", "gender", "race", "age", "sledai", "sledai_next", "flare_next", "visit_next"
+))
+
+numeric_gene_cols <- gene_cols[sapply(merged_long[, gene_cols], is.numeric)]
+
+cor_vals <- apply(merged_long[, numeric_gene_cols], 2, function(x) cor(x, merged_long$flare_next, use = "complete.obs"))
+
+top_genes <- names(sort(abs(cor_vals), decreasing = TRUE))[1:30]
+
+gene_data_top <- merged_long[, c("flare_next", top_genes)]
+```
+
+```{r}
+library(caret)
+
+merged_long$flare_next <- as.factor(merged_long$flare_next)
+
+set.seed(123)
+train_idx <- createDataPartition(merged_long$flare_next, p = 0.8, list = FALSE)
+train_data <- merged_long[train_idx, c(top_genes, "flare_next")]
+test_data  <- merged_long[-train_idx, c(top_genes, "flare_next")]
+
+rf_model <- train(
+  flare_next ~ ., 
+  data = train_data,
+  method = "rf",
+  trControl = trainControl(method = "cv", number = 5),
+  importance = TRUE
+)
+
+pred <- predict(rf_model, newdata = test_data)
+confusionMatrix(pred, test_data$flare_next)
+```
+
+# 3 Longitudinal flare prediction (Current + Previous Visit)
+
+### 🔁 **How I Predicted the Next Flare**
+
+To predict whether a patient would experience a **flare in the next visit** (defined as SLEDAI ≥ 5), I constructed a new binary variable called `flare_next`. This variable was created by grouping visits by patient ID and checking if the **SLEDAI score at the subsequent visit** met the flare threshold:
+
+-   If `next_sledai ≥ 5`, then `flare_next = 1` (flare）
+
+-   If `next_sledai < 5`, then `flare_next = 0` (no flare)
+
+-   If no future visit exists, the row was dropped.
+
+🧬 **Features Used**
+
+To build a **longitudinal model**, I used gene expression data from both:
+
+-   The **current visit**, and
+
+-   The **previous visit** (as lagged variables, e.g. `prev_GENE1`)
+
+-   These features were selected based on their **Pearson correlation** with `flare_next`. The **top 30 most correlated genes** (from \~21,000) were included in the model.
+
+🧠 **Model Trained**
+
+I trained a **Random Forest classifier** using the `caret` package in R:
+
+5-fold cross-validation was applied.
+
+The target was `flare_next`.
+
+The model was evaluated on a held-out test set.
+
+📈 **Performance Summary**
+
+-   **Accuracy**: 67.7%
+
+    **Balanced Accuracy**: 67.6%
+
+    **Kappa**: 0.35 (moderate agreement)
+
+    **Sensitivity** (no flare): 70.8%
+
+    **Specificity** (flare): 64.4%
+
+    **P-value vs baseline (NIR)**: 0.00038 → statistically significant improvement
+
+    These results suggest that **longitudinal gene expression data** can moderately predict upcoming flares, offering potential for early intervention.
+
+```{r}
+# Create lag features (previous time point) for top genes only
+merged_long <- merged_long %>%
+  group_by(patient_id) %>%
+  mutate(across(all_of(top_genes), list(prev = ~lag(.)), .names = "prev_{.col}")) %>%
+  ungroup()
+
+# Use only top genes + their lagged versions
+feature_cols <- c(top_genes, paste0("prev_", top_genes))
+train_df <- merged_long[, c("flare_next", feature_cols)]
+
+# Ensure only numeric variables
+train_df <- train_df[, sapply(train_df, is.numeric)]
+train_df$flare_next <- as.factor(merged_long$flare_next)
+
+# Split and train
+set.seed(123)
+train_idx <- createDataPartition(train_df$flare_next, p = 0.8, list = FALSE)
+train_data <- train_df[train_idx, ]
+test_data  <- train_df[-train_idx, ]
+
+train_data <- na.omit(train_data)
+test_data  <- na.omit(test_data)
+
+# Train using memory-efficient ranger
+library(caret)
+rf_model_long <- train(
+  flare_next ~ ., 
+  data = train_data,
+  method = "ranger",
+  trControl = trainControl(method = "cv", number = 5),
+  importance = "impurity"
+)
+
+# Predict and evaluate
+pred <- predict(rf_model_long, newdata = test_data)
+confusionMatrix(pred, test_data$flare_next)
+```
