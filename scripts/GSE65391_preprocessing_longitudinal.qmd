@@ -1,0 +1,286 @@
+---
+title: "GSE65391_preprocessing_longitudinal"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+format:
+  html:
+    code-tools: true
+    code-fold: true
+    fig_caption: yes
+    number_sections: yes
+    embed-resources: true
+    theme: flatly
+    css: 
+      - https://use.fontawesome.com/releases/v5.0.6/css/all.css
+    toc: true
+    toc_depth: 4
+    toc_float: true
+execute:
+  echo: true
+  tidy: true
+  warning: false
+  message: false
+---
+
+```{r}
+eMat <- readRDS("GSE65391_preprocessed/eMat_with_symbols.rds")
+fData <- readRDS("GSE65391_preprocessed/fData.rds")
+pData <- readRDS("GSE65391_preprocessed/pData_final.rds")
+```
+
+# Create 'flare_next' and also 'ordered_visit'
+
+**visit_count**: This represents the total number of visits for a patient **with associated expression data** (i.e., visits where expression data was collected).\
+
+**visit**: This is a variable that **identifies each visit** for a patient. However, the numbering may not always start from 1 and may not increment sequentially (i.e., there could be missing visits or gaps in the numbering).\
+
+Not every **clinical visit** corresponds to a **gene expression measurement**, so some visits might be **missing expression data**.
+
+We want to create ordered_visit to fix this (all patients begin at V01, then V02, V03, without any gaps)
+
+```{r}
+library(tidyverse)
+
+pData$sledai <- as.numeric(pData$sledai)
+pData$visit <- as.numeric(pData$visit)
+
+pData <- pData[order(pData$patient_id, pData$visit), ]
+
+pData <- pData %>%
+  group_by(patient_id) %>%
+  mutate(ordered_visit = row_number()) %>%
+  ungroup()
+
+pData <- pData %>%
+  group_by(patient_id) %>%
+  arrange(patient_id, ordered_visit) %>%
+  mutate(sledai_next = lead(sledai, order_by = ordered_visit)) %>%
+  mutate(sledai_change = sledai_next - sledai)
+
+pData$flare_next <- ifelse(pData$sledai_change >= 3, 1, 0)
+
+table(pData$treatment)
+```
+
+## Check that things are done correctly
+
+```{r}
+relevant_columns_time_visit <- pData %>%
+  select(
+    patient_id, ordered_visit, visit, visit_count, 
+    sledai, sledai_next, sledai_change, flare_next, 
+    
+  )
+
+relevant_columns_time_visit
+```
+
+## Reconstruct row names
+
+```{r}
+pData <- pData %>%
+  filter(group_type != "HEALTHY")
+
+pData$rownames <- paste("SLE", pData$patient_id, sprintf("V%02d", pData$visit), sep = "_")
+
+pData <- as.data.frame(pData)
+
+rownames(pData) <- pData$rownames
+
+pData$rownames <- NULL
+
+head(pData)
+```
+
+## Filter out rows where 'sledai_change' is NA (i.e. final visit for a patient)
+
+```{r}
+pData_filtered <- pData %>%
+  filter(!is.na(sledai_change))
+```
+
+```{r}
+pData_filtered
+```
+
+
+```{r}
+pData_filtered$eMat_colname <- paste("SLE", pData_filtered$patient_id, sprintf("V%02d", pData_filtered$visit), sep = "_")
+
+head(pData_filtered$eMat_colname)
+
+eMat_filtered <- eMat[, colnames(eMat) %in% pData_filtered$eMat_colname]
+
+colnames(eMat_filtered) <- paste("SLE", gsub("HEALTHY_|SLE_", "", colnames(eMat_filtered)))
+
+
+eMat_filtered
+```
+
+```{r}
+eMat_filtered <- eMat[, colnames(eMat) %in% rownames(pData_filtered)]
+
+eMat_filtered
+```
+
+```{r}
+library(limma)
+
+pData_filtered <- pData_filtered[order(pData_filtered$patient_id, pData_filtered$visit), ]
+
+design <- model.matrix(~ flare_next, data = pData_filtered)
+
+fit <- lmFit(eMat_filtered, design)
+fit <- eBayes(fit)
+
+top_genes <- topTable(fit, coef = "flare_next", number = 10)
+
+head(top_genes)
+```
+
+```{r}
+top_200_genes_one_timepoint <- topTable(fit, coef = "flare_next", number = 200)
+
+# write.csv(top_200_genes_one_timepoint, "top_200_genes_one_timepoint.csv", row.names = TRUE)
+```
+
+# LogFC from prev
+
+```{r}
+library(dplyr)
+library(tibble)
+
+logfc_list <- list()
+
+unique_patients <- unique(pData_filtered$patient_id)
+
+for (pid in unique_patients) {
+  pdata_patient <- pData_filtered %>%
+    filter(patient_id == pid) %>%
+    arrange(ordered_visit)
+  
+  if (nrow(pdata_patient) < 2) next
+  
+  sample_ids <- pdata_patient$sample_id  # If no 'sample_id' column, use rownames(pdata_filtered)
+  if (is.null(sample_ids)) sample_ids <- rownames(pdata_patient)
+
+  for (i in 2:length(sample_ids)) {
+    current_id <- sample_ids[i]
+    prev_id <- sample_ids[i - 1]
+    
+    logfc <- eMat_filtered[, current_id] - eMat_filtered[, prev_id]
+    
+    new_colname <- paste0(current_id, "_logfc_fromprev")
+    
+    logfc_list[[new_colname]] <- logfc
+  }
+}
+
+eMat_logfc <- as.data.frame(logfc_list)
+rownames(eMat_logfc) <- rownames(eMat_filtered)
+```
+
+```{r}
+eMat_logfc
+```
+
+```{r}
+sample_ids_logfc <- sub("_logfc_fromprev$", "", colnames(eMat_logfc))
+
+pData_subset <- pData_filtered[sample_ids_logfc, ]
+flare_labels <- pData_subset$flare_next
+
+design <- model.matrix(~ factor(flare_labels))
+colnames(design) <- c("Intercept", "FlareNext1")
+
+expr_mat <- as.matrix(eMat_logfc)
+
+library(limma)
+
+fit <- lmFit(expr_mat, design)
+fit <- eBayes(fit)
+results <- topTable(fit, coef = "FlareNext1", number = Inf)
+
+top_genes <- topTable(fit, coef = "FlareNext1", number = 10)
+print(top_genes)
+```
+
+```{r}
+top_200_genes_two_timepoints <- topTable(fit, coef = "FlareNext1", number = 200)
+
+# write.csv(top_200_genes_two_timepoints, "top_200_genes_two_timepoints.csv", row.names = TRUE)
+```
+
+```{r}
+library(tidyverse)
+subset_data <- pData %>%
+  filter(patient_id==55) %>%
+  select(ordered_visit, sledai, sledai_next, sledai_change, flare_next)
+
+subset_data
+```
+
+# Slope from prev
+
+```{r}
+# Slope from previous visit (logFC per day)
+library(dplyr)
+library(tibble)
+library(limma)
+
+rate_list <- list()
+
+unique_patients <- unique(pData_filtered$patient_id)
+
+for (pid in unique_patients) {
+  pdata_patient <- pData_filtered %>%
+    filter(patient_id == pid) %>%
+    arrange(ordered_visit)
+  
+  if (nrow(pdata_patient) < 2) next
+  
+  sample_ids <- pdata_patient$sample_id
+  if (is.null(sample_ids)) sample_ids <- rownames(pdata_patient)
+  
+  for (i in 2:length(sample_ids)) {
+    current_id <- sample_ids[i]
+    prev_id <- sample_ids[i - 1]
+    
+    logfc <- as.numeric(eMat_filtered[, current_id]) - as.numeric(eMat_filtered[, prev_id])
+    
+    # Correctly get the time delta from the *patient-specific* data frame
+    days_diff <- as.numeric(pdata_patient$days_since_last_visit[i])
+    
+    # Skip if invalid
+    if (is.na(days_diff) || days_diff == 0) next
+    
+    rate_change <- logfc / days_diff
+    new_colname <- paste0(current_id, "_rate_fromprev")
+    rate_list[[new_colname]] <- rate_change
+  }
+}
+
+# Assemble matrix
+eMat_rate <- as.data.frame(rate_list)
+rownames(eMat_rate) <- rownames(eMat_filtered)
+
+# Match metadata
+sample_ids_rate <- sub("_rate_fromprev$", "", colnames(eMat_rate))
+pData_subset <- pData_filtered[sample_ids_rate, ]
+flare_labels <- pData_subset$flare_next
+
+# Design matrix for limma
+design <- model.matrix(~ factor(flare_labels))
+colnames(design) <- c("Intercept", "FlareNext1")
+
+expr_mat <- as.matrix(eMat_rate)
+fit <- lmFit(expr_mat, design)
+fit <- eBayes(fit)
+
+# Results
+top_genes <- topTable(fit, coef = "FlareNext1", number = 100)
+print(top_genes)
+
+# Save top 200
+top_200_genes_rate <- topTable(fit, coef = "FlareNext1", number = 200)
+# write.csv(top_200_genes_rate, "top_200_genes_rate_of_change.csv", row.names = TRUE)
+```

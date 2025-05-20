@@ -1,0 +1,664 @@
+---
+title: "GSE65391_preprocessing"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+format:
+  html:
+    code-tools: true
+    code-fold: true
+    fig_caption: yes
+    number_sections: yes
+    embed-resources: true
+    theme: flatly
+    css: 
+      - https://use.fontawesome.com/releases/v5.0.6/css/all.css
+    toc: true
+    toc_depth: 4
+    toc_float: true
+execute:
+  echo: true
+  tidy: true
+  warning: false
+  message: false
+---
+
+# eMat
+
+```{r}
+# readLines("data/GSE65391_non-normalized_data_Illumina_HT12_V4_R1.txt.gz", n = 50)
+# See that the actual expression values alternating with detection p-values on every second column.
+# We will keep every odd-numbered column after the probe ID to get the expression matrix only.
+```
+
+```{r}
+library(data.table)
+
+# --- Load and process R1 ---
+eMat1_full <- fread("data/GSE65391_non-normalized_data_Illumina_HT12_V4_R1.txt.gz")
+expr_cols1 <- c(1, seq(2, ncol(eMat1_full), by = 2))
+eMat1 <- eMat1_full[, ..expr_cols1]
+setnames(eMat1, 1, "probe")
+```
+
+```{r}
+# --- Load and process R2 ---
+eMat2_full <- fread("data/GSE65391_non-normalized_data_Illumina_HT12_V4_R2.txt.gz")
+expr_cols2 <- c(1, seq(2, ncol(eMat2_full), by = 2))
+eMat2 <- eMat2_full[, ..expr_cols2]
+setnames(eMat2, 1, "probe")
+```
+
+```{r}
+# length(setdiff(eMat2$probe, eMat1$probe))  # probes in R2 but not R1: 92
+# length(setdiff(eMat1$probe, eMat2$probe))  # probes in R1 but not R2: 0
+# we will just that the intersection
+```
+
+```{r}
+# setdiff(eMat2$probe, eMat1$probe)
+# the probesets in R2 but not R1 don't seem to have any particular pattern
+# later analysis of the batch numbers for each sample showed that R1 and R2 came from different batches
+```
+
+```{r}
+# Step 1: Find common probes
+common_probes <- intersect(eMat1$probe, eMat2$probe)
+
+# Step 2: Filter and align by probe
+eMat1_aligned <- eMat1[probe %in% common_probes]
+eMat2_aligned <- eMat2[probe %in% common_probes]
+
+# Step 3: Order both by probe to ensure matching row order
+setkey(eMat1_aligned, probe)
+setkey(eMat2_aligned, probe)
+stopifnot(all(eMat1_aligned$probe == eMat2_aligned$probe))
+
+# Step 4: Merge, set rownames, and assign to eMat
+eMat_combined <- cbind(eMat1_aligned, eMat2_aligned[, -1])  # drop 2nd probe col
+eMat <- as.data.frame(eMat_combined[, -1])
+rownames(eMat) <- eMat_combined$probe
+```
+
+```{r}
+# --- SHIFT TO MAKE ALL VALUES POSITIVE BEFORE BATCH CORRECTION ---
+
+# Step 0: Find minimum value
+min_val <- min(eMat, na.rm = TRUE)
+
+# Step 1: Shift ONLY if necessary
+if (min_val <= 0) {
+  shift_value <- abs(min_val) + 1
+  message("Shifting eMat by ", shift_value, " to ensure all values are positive.")
+  eMat <- eMat + shift_value
+} else {
+  message("No shifting needed; all values already positive.")
+}
+```
+
+
+```{r}
+# # Save eMat to CSV
+# write.csv(eMat, "eMat_notnormalised.csv", row.names = TRUE)
+# 
+# # Save eMat to RDS
+# saveRDS(eMat, "eMat_notnormalised.rds")
+```
+
+# pData
+
+```{r}
+# readLines("data/GSE65391_series_matrix.txt.gz", n = 100)
+```
+
+```{r}
+# Step 1: Read all lines
+all_lines <- readLines("data/GSE65391_series_matrix.txt.gz")
+
+# Step 2: Extract just the sample metadata block
+start_line <- 49
+end_line <- grep("!series_matrix_table_begin", all_lines) - 1
+metadata_lines <- all_lines[start_line:end_line]
+
+# Step 3: Write to temp file and read with fread
+tmp_file <- tempfile(fileext = ".txt")
+writeLines(metadata_lines, tmp_file)
+
+pData_raw <- fread(tmp_file)
+
+# Step 4: Make variable names unique to avoid duplicate column names
+var_names <- make.unique(pData_raw[[1]])
+pData_transposed <- as.data.table(t(pData_raw[, -1]))
+setnames(pData_transposed, var_names)
+
+# Step 5: Add sample IDs
+sample_ids <- colnames(pData_raw)[-1]
+pData_transposed[, sample_id := sample_ids]
+setcolorder(pData_transposed, c("sample_id", setdiff(names(pData_transposed), "sample_id")))
+```
+
+```{r}
+# Extract illumina array ID from the description column
+pData <- as.data.frame(pData_transposed)  # convert to data.frame
+pData$illumina_id <- gsub(".*Sample name: ", "", pData$`!Sample_description`)
+```
+
+```{r}
+# Step 1: Get sample IDs from both
+sample_ids_expr <- colnames(eMat)
+sample_ids_pheno <- pData$illumina_id
+
+# Step 2: Check for mismatches
+all_matched <- all(sample_ids_expr %in% sample_ids_pheno) && all(sample_ids_pheno %in% sample_ids_expr)
+
+# Step 3: Report result
+if (all_matched) {
+  message("All sample IDs match between eMat and pData.")
+} else {
+  message("Mismatch found.")
+  cat("In eMat but not pData:\n")
+  print(setdiff(sample_ids_expr, sample_ids_pheno))
+  cat("In pData but not eMat:\n")
+  print(setdiff(sample_ids_pheno, sample_ids_expr))
+}
+
+
+# All sample IDs match between eMat and pData.
+```
+
+```{r}
+length(shared_samples <- intersect(colnames(eMat), pData$illumina_id))
+# 996 -> means one to one relationship between samples in eMat and those in pData
+
+```
+
+```{r}
+# Remove rows (it was just one person who visited once) where 'sample_id' contains "Data Not Available"
+pData <- subset(pData, !grepl("Data Not Available", sample_id, fixed = TRUE))
+
+# number of samples now 995, the sample 5552251051_E only visited once
+```
+
+```{r}
+library(dplyr)
+library(stringr)
+
+pData <- pData %>%
+  mutate(
+    # Identify group type
+    group_type = case_when(
+      str_detect(sample_id, "SLE") ~ "SLE",
+      str_detect(sample_id, "BAY-H") ~ "HEALTHY",
+      TRUE ~ "UNKNOWN"
+    ),
+
+    # Extract patient ID
+    patient_id = case_when(
+      group_type == "SLE" ~ str_extract(sample_id, "SLE-(\\d+)") %>% str_remove("SLE-"),
+      group_type == "HEALTHY" ~ str_extract(sample_id, "H\\d+") %>% str_remove("H"),
+      TRUE ~ NA_character_
+    ),
+
+    # Extract visit number
+    visit = str_extract(sample_id, "V\\d+"),
+    visit_num = str_pad(str_remove(visit, "V"), width = 2, pad = "0"),
+
+    # Extract final digit (technical replicate marker) for HEALTHY only
+    replicate_suffix = case_when(
+      group_type == "HEALTHY" ~ str_extract(sample_id, "(?<=Healthy-)[12]"),
+      TRUE ~ NA_character_
+    ),
+
+    # Construct final unique ID
+    unique_id = case_when(
+      group_type == "HEALTHY" ~ paste0(group_type, "_", patient_id, "_V", visit_num, "_", replicate_suffix),
+      group_type == "SLE"     ~ paste0(group_type, "_", patient_id, "_V", visit_num),
+      TRUE ~ NA_character_
+    )
+  ) %>%
+  relocate(unique_id, .before = 1)
+
+# ============================
+# Row Names (Sample Identifiers)
+# ============================
+# The rownames of `pData` are now unique, readable sample identifiers.
+# Format: <GROUP>_<PATIENT ID>_V<VISIT NUMBER>[_<REPLICATE>]
+#
+# - GROUP: Either "SLE" for lupus patients or "HEALTHY" for controls
+# - PATIENT ID: A numeric identifier (e.g., 161 for "SLE-161", 305 for "H305")
+# - VISIT NUMBER: Padded with zeroes (e.g., V01, V02, ...)
+# - REPLICATE: Only present for healthy controls, indicating technical replicate
+#              ("_1" for original, "_2" for replicate)
+#
+# Examples:
+# - "SLE_161_V03"         → SLE patient #161 at visit 3
+# - "HEALTHY_305_V01_2"   → Healthy control #305, visit 1, technical replicate 2
+#
+# These IDs ensure:
+# - One-to-one mapping with expression data (`eMat` columns)
+# - Easy sorting and grouping by individual and visit
+```
+
+```{r}
+# Step 1: Move 'illumina_id' to the front
+pData <- pData %>%
+  relocate(illumina_id, .before = 1)
+
+# Step 2: Set rownames to 'unique_id'
+rownames(pData) <- pData$unique_id
+
+# Step 3: Remove the 'unique_id' column (since now in rownames)
+pData$unique_id <- NULL
+```
+
+```{r}
+# Find columns where all values are the same
+constant_cols <- sapply(pData, function(col) length(unique(col)) == 1)
+
+pData_filtered <- pData[, !constant_cols]
+# dropped info: all blood RNA data
+```
+
+```{r}
+pData_filtered$batch <- as.integer(gsub("batch: ", "", pData_filtered$`!Sample_characteristics_ch1`))
+table(pData_filtered$batch, useNA = "ifany")
+
+pData_filtered$batch_replicate <- grepl("batch_replicate: TRUE", pData_filtered$`!Sample_characteristics_ch1.1`)
+table(pData_filtered$batch_replicate, useNA = "ifany")
+```
+
+```{r}
+# Define the columns to remove
+cols_to_remove <- c("sample_id",
+                    "!Sample_source_name_ch1",
+                    "!Sample_characteristics_ch1",
+                    "!Sample_characteristics_ch1.1",
+                    "!Sample_characteristics_ch1.2",
+                    "!Sample_description")
+
+# Step 1: Create a new dataframe with just the removed columns
+pData_removed <- pData_filtered[, cols_to_remove, drop = FALSE]
+
+# Step 2: Remove those columns from pData_filtered
+pData_filtered <- pData_filtered[, !names(pData_filtered) %in% cols_to_remove]
+```
+
+```{r}
+setnames(pData_filtered, "!Sample_geo_accession", "geo_accession")
+```
+
+```{r}
+# Make a copy to work on
+pData_final <- copy(pData_filtered)
+
+# Step 1: Identify all relevant columns
+char_cols <- grep("^!Sample_characteristics_ch1", names(pData_final), value = TRUE)
+
+# Step 2: Loop through and process each one
+for (col in char_cols) {
+  # Split values on ": "
+  split_vals <- tstrsplit(pData_final[[col]], ": ", fixed = TRUE)
+  
+  # If properly split into key and value
+  if (length(split_vals) == 2) {
+    key <- unique(na.omit(split_vals[[1]]))
+    
+    # Only proceed if there's a single unique key
+    if (length(key) == 1) {
+      key_clean <- key[1]
+      
+      # Add new column with just values
+      pData_final[[key_clean]] <- split_vals[[2]]
+    } else {
+      warning(sprintf("Multiple keys found in column %s: %s", col, paste(key, collapse = ", ")))
+    }
+  }
+  
+  # Remove the original column
+  pData_final[[col]] <- NULL
+}
+```
+
+```{r}
+# Replace both types of pseudo-NA with actual NA across all character columns
+pData_final[] <- lapply(pData_final, function(x) {
+  if (is.character(x)) {
+    x[x %in% c("Data Not Available", "Not Applicable")] <- NA
+  }
+  return(x)
+})
+
+# Data Not Available is their version of NA
+# Not Applicable is also NA, but this is for healthy patients who are not meant to have sledai scores for example
+```
+
+```{r}
+pData_final <- pData_final %>%
+  mutate(patient_id = as.numeric(patient_id))
+```
+
+```{r}
+pData_final <- pData_final %>%
+  select(-visit_num, -replicate_suffix)
+
+head(pData_final)
+# ------------------------------------------------------------------------------
+# 'visit' vs 'visit_count' clarification:
+#
+# - 'visit' reflects the original clinical visit label (e.g., V03, V04, etc.)
+#   and may not start at 1 due to missing or excluded early visits.
+#
+# - 'visit_count' is a clean, sequential count of the number of transcriptomic
+#   samples available per patient, starting from 1 regardless of gaps in 'visit'.
+#
+# This allows us to model patient trajectories consistently even when early visits
+# are missing or skipped. Use 'visit_count' for analysis; keep 'visit' for reference.
+# ------------------------------------------------------------------------------
+```
+
+```{r}
+# write.csv(pData_final, "pData_final.csv", row.names = TRUE)
+# saveRDS(pData_final, "pData_final.rds")
+```
+
+```{r}
+# Step 1: Create a mapping vector
+id_map <- rownames(pData_final)
+names(id_map) <- pData_final$illumina_id  # named vector: names = old, values = new
+
+# Step 2: Rename columns in eMat using the mapping
+colnames(eMat) <- id_map[colnames(eMat)]
+```
+
+```{r}
+# Ensure the sample IDs match
+shared_samples <- intersect(colnames(eMat), rownames(pData_final))
+
+# Filter eMat to keep only those columns
+eMat <- eMat[, shared_samples]
+
+# Reorder eMat samples to match pData_final
+eMat <- eMat[, rownames(pData_final)]
+
+# Double check alignment
+stopifnot(all(colnames(eMat) == rownames(pData_final)))
+```
+
+# fData
+
+```{r}
+library(illuminaHumanv4.db)
+library(AnnotationDbi)
+
+# Step 1: Extract probe IDs
+probe_ids <- rownames(eMat)
+
+# Step 2: Map probe IDs to gene-related info
+fData <- AnnotationDbi::select(
+  illuminaHumanv4.db,
+  keys = probe_ids,
+  columns = c("SYMBOL", "GENENAME", "ENTREZID", "CHR", "CHRLOC", "CHRLOCEND"),
+  keytype = "PROBEID"
+)
+
+# Step 3: Remove duplicates (optional, depending on downstream needs)
+fData <- unique(fData)
+```
+
+```{r}
+head(fData)
+```
+
+```{r}
+length(unique(fData$PROBEID))
+```
+
+```{r}
+library(dplyr)
+
+multi_gene_probes <- fData %>%
+  group_by(PROBEID) %>%
+  summarise(n_genes = n_distinct(SYMBOL), .groups = "drop") %>%
+  filter(n_genes > 1)
+
+head(multi_gene_probes)
+```
+
+
+```{r}
+# write.csv(fData, "fData.csv", row.names = TRUE)
+# 
+# saveRDS(fData, "fData.rds")
+```
+
+
+
+# Batch Correction and Normalisation
+
+
+```{r}
+# Ensure your matrix and phenotype data are aligned
+stopifnot(all(colnames(eMat) == rownames(pData_final)))
+
+# Transpose eMat for PCA (samples as rows, genes as columns)
+eMat_t <- t(eMat)
+
+# Remove constant columns (PCA can't handle these)
+non_constant_cols <- apply(eMat_t, 2, function(x) sd(x) > 0)
+eMat_t_filtered <- eMat_t[, non_constant_cols]
+
+# Perform PCA
+pca_res <- prcomp(eMat_t_filtered, center = TRUE, scale. = TRUE)
+
+# Prepare data for plotting
+pca_df <- data.frame(
+  PC1 = pca_res$x[, 1],
+  PC2 = pca_res$x[, 2],
+  batch = as.factor(pData_final$batch),
+  sample_id = rownames(pData_final)
+)
+
+# Plot using ggplot2
+library(ggplot2)
+ggplot(pca_df, aes(x = PC1, y = PC2, color = batch)) +
+  geom_point(size = 2, alpha = 0.8) +
+  labs(title = "PCA of Expression Matrix", x = "PC1", y = "PC2") +
+  theme_minimal() +
+  theme(legend.title = element_text(size = 10), 
+        legend.text = element_text(size = 9))
+
+library(plotly)
+
+# Construct PCA dataframe with top 3 components
+pca_df <- as.data.frame(pca_res$x[, 1:3])
+pca_df$batch <- as.factor(pData_final[rownames(pca_df), "batch"])
+
+plot_ly(
+  data = pca_df,
+  x = ~PC1, y = ~PC2, z = ~PC3,
+  color = ~batch,
+  colors = c("red", "blue"),
+  type = 'scatter3d',
+  mode = 'markers',
+  marker = list(size = 4, opacity = 0.8)
+) %>%
+  layout(
+    scene = list(
+      xaxis = list(title = paste0("PC1 (", round(summary(pca_res)$importance[2, 1] * 100, 1), "%)")),
+      yaxis = list(title = paste0("PC2 (", round(summary(pca_res)$importance[2, 2] * 100, 1), "%)")),
+      zaxis = list(title = paste0("PC3 (", round(summary(pca_res)$importance[2, 3] * 100, 1), "%)"))
+    ),
+    title = "3D PCA Plot by Batch"
+  )
+```
+
+```{r}
+library(dplyr)
+
+pData_healthy <- pData_final %>%
+  filter(group_type == "HEALTHY")
+
+# Make sure patient_id is numeric
+pData_healthy$patient_id <- as.numeric(as.character(pData_healthy$patient_id))
+
+# Step 1: Filter patient_ids with exactly 2 samples
+paired_candidates <- pData_healthy %>%
+  group_by(patient_id) %>%
+  filter(n() == 2) %>%
+  summarise(batches = list(unique(batch))) %>%
+  filter(lengths(batches) == 2)
+
+# Step 2: Keep only those 24 patients
+pData_healthy_replicates <- pData_healthy %>%
+  filter(patient_id %in% paired_candidates$patient_id) %>%
+  arrange(patient_id, batch)
+
+# Step 3: Quick checks
+cat("Number of paired healthy patients:", length(unique(pData_healthy_replicates$patient_id)), "\n")
+cat("Total samples from them:", nrow(pData_healthy_replicates), "\n")
+
+head(pData_healthy_replicates)
+```
+
+## Batch Correction Using Ratios
+
+
+```{r}
+library(dplyr)
+
+# Step 1: Get sample IDs in each batch for the 24 paired healthy controls
+paired_ids_batch1 <- rownames(pData_healthy_replicates[pData_healthy_replicates$batch == 1, ])
+paired_ids_batch2 <- rownames(pData_healthy_replicates[pData_healthy_replicates$batch == 2, ])
+
+# Step 2: Match ordering of batch1 and batch2 sample IDs by patient ID
+paired_ids_batch1 <- paired_ids_batch1[order(pData_healthy_replicates[paired_ids_batch1, "patient_id"])]
+paired_ids_batch2 <- paired_ids_batch2[order(pData_healthy_replicates[paired_ids_batch2, "patient_id"])]
+
+# Step 3: Extract expression values from eMat
+expr_batch1 <- eMat[, paired_ids_batch1]
+expr_batch2 <- eMat[, paired_ids_batch2]
+
+# Step 4: Compute per-probe median ratio of batch2 / batch1
+ratio_matrix <- expr_batch2 / expr_batch1  # same shape: probes × 24 paired samples
+median_ratio_per_probe <- apply(ratio_matrix, 1, median, na.rm = TRUE)  # length: n_probes
+
+# Step 5: Make a corrected version of eMat (do not overwrite original)
+eMat_corrected <- eMat
+
+# Step 6: Identify all samples in batch 1 using pData_final
+batch1_samples <- rownames(pData_final)[pData_final$batch == 1]
+
+# Step 7: Apply batch correction by multiplying batch 1 samples by the per-probe median ratio
+eMat_corrected[, batch1_samples] <- sweep(eMat[, batch1_samples], 1, median_ratio_per_probe, `*`)
+```
+
+```{r}
+# --- PREP FOR PCA ON BATCH-CORRECTED MATRIX ---
+
+# Ensure alignment
+stopifnot(all(colnames(eMat_corrected) == rownames(pData_final)))
+
+# Transpose corrected eMat (samples as rows)
+eMat_corrected_t <- t(eMat_corrected)
+
+# Remove constant genes (0 variance)
+non_constant_cols_corrected <- apply(eMat_corrected_t, 2, function(x) sd(x) > 0)
+eMat_corrected_t_filtered <- eMat_corrected_t[, non_constant_cols_corrected]
+
+# PCA
+pca_corrected <- prcomp(eMat_corrected_t_filtered, center = TRUE, scale. = TRUE)
+
+# --- 2D PCA PLOT WITH GGPLOT2 ---
+library(ggplot2)
+
+pca_df_corrected <- data.frame(
+  PC1 = pca_corrected$x[, 1],
+  PC2 = pca_corrected$x[, 2],
+  batch = as.factor(pData_final$batch),
+  sample_id = rownames(pData_final)
+)
+
+ggplot(pca_df_corrected, aes(x = PC1, y = PC2, color = batch)) +
+  geom_point(size = 2, alpha = 0.8) +
+  labs(title = "PCA of Corrected Expression Matrix", x = "PC1", y = "PC2") +
+  theme_minimal() +
+  theme(legend.title = element_text(size = 10),
+        legend.text = element_text(size = 9))
+
+# --- 3D PCA PLOT WITH PLOTLY ---
+library(plotly)
+
+# Construct 3D PCA dataframe
+pca_df_3d <- as.data.frame(pca_corrected$x[, 1:3])
+pca_df_3d$batch <- as.factor(pData_final[rownames(pca_df_3d), "batch"])
+
+plot_ly(
+  data = pca_df_3d,
+  x = ~PC1, y = ~PC2, z = ~PC3,
+  color = ~batch,
+  colors = c("red", "blue"),
+  type = 'scatter3d',
+  mode = 'markers',
+  marker = list(size = 4, opacity = 0.8)
+) %>%
+  layout(
+    scene = list(
+      xaxis = list(title = paste0("PC1 (", round(summary(pca_corrected)$importance[2, 1] * 100, 1), "%)")),
+      yaxis = list(title = paste0("PC2 (", round(summary(pca_corrected)$importance[2, 2] * 100, 1), "%)")),
+      zaxis = list(title = paste0("PC3 (", round(summary(pca_corrected)$importance[2, 3] * 100, 1), "%)"))
+    ),
+    title = "3D PCA Plot (Batch-Corrected)"
+  )
+```
+
+```{r}
+# Sample a subset of genes to plot (not every gene, otherwise too much noise)
+set.seed(123)  # for reproducibility
+sampled_genes <- sample(rownames(eMat_corrected), size = 1000)
+
+# Melt the matrix into long format
+library(reshape2)
+eMat_long <- melt(as.matrix(eMat_corrected[sampled_genes, ]))
+
+# Plot
+library(ggplot2)
+ggplot(eMat_long, aes(x = value)) +
+  geom_histogram(bins = 100, fill = "skyblue", color = "black") +
+  labs(title = "Histogram of Expression Values", x = "Expression", y = "Frequency") +
+  theme_minimal()
+```
+```{r}
+eMat_log2 <- log2(eMat_corrected)
+```
+
+```{r}
+# Sample a subset of genes to plot (not every gene, otherwise too much noise)
+set.seed(123)  # for reproducibility
+sampled_genes <- sample(rownames(eMat_log2), size = 1000)
+
+# Melt the matrix into long format
+library(reshape2)
+eMat_long_2 <- melt(as.matrix(eMat_log2[sampled_genes, ]))
+
+# Plot
+library(ggplot2)
+ggplot(eMat_long_2, aes(x = value)) +
+  geom_histogram(bins = 100, fill = "skyblue", color = "black") +
+  labs(title = "Histogram of Expression Values", x = "Expression", y = "Frequency") +
+  theme_minimal()
+```
+
+```{r}
+sample = sample(ncol(eMat_log2), 100)
+boxplot(eMat_log2[,sample])
+```
+
+```{r}
+# write.csv(eMat_log2, "eMat_preprocessed.csv", row.names = TRUE)
+# 
+# saveRDS(eMat_log2, "eMat_preprocessed.rds")
+```
+
+
+
+
+
+

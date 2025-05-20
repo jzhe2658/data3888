@@ -1,0 +1,63 @@
+---
+title: "GSE65391_eMat_probeTOsymbol"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+format:
+  html:
+    code-tools: true
+    code-fold: true
+    fig_caption: yes
+    number_sections: yes
+    embed-resources: true
+    theme: flatly
+    css: 
+      - https://use.fontawesome.com/releases/v5.0.6/css/all.css
+    toc: true
+    toc_depth: 4
+    toc_float: true
+execute:
+  echo: true
+  tidy: true
+  warning: false
+  message: false
+---
+
+## 
+
+```{r}
+eMat <- readRDS("GSE65391_preprocessed/eMat_preprocessed.rds")
+fData <- readRDS("GSE65391_preprocessed/fData.rds")
+pData <- readRDS("GSE65391_preprocessed/pData_final.rds")
+```
+
+```{r}
+library(dplyr)
+
+# --- Step 1: Filter fData to keep only needed columns and drop NA gene symbols ---
+fData_clean <- fData %>%
+  select(PROBEID, SYMBOL) %>%
+  filter(!is.na(SYMBOL))
+
+# --- Step 2: Subset eMat to only include probes that are in fData_clean ---
+# Make sure probe IDs in eMat are rownames and match PROBEID
+common_probes <- intersect(rownames(eMat), fData_clean$PROBEID)
+eMat_filtered <- eMat[common_probes, , drop = FALSE]
+
+# --- Step 3: Add SYMBOL (gene name) as a column in eMat ---
+gene_symbols <- fData_clean$SYMBOL[match(rownames(eMat_filtered), fData_clean$PROBEID)]
+eMat_annotated <- cbind(SYMBOL = gene_symbols, as.data.frame(eMat_filtered))
+
+# --- Step 4: Collapse to gene level by taking the mean of all probes per gene ---
+eMat_gene <- eMat_annotated %>%
+  group_by(SYMBOL) %>%
+  summarise(across(where(is.numeric), mean), .groups = "drop")
+
+# --- Step 5: Set SYMBOL as rownames and keep as data frame ---
+eMat_gene <- as.data.frame(eMat_gene)
+rownames(eMat_gene) <- eMat_gene$SYMBOL
+eMat_gene <- eMat_gene[, -1, drop = FALSE]
+```
+
+```{r}
+# write.csv(eMat_gene, "eMat_with_symbols.csv", row.names = TRUE)
+# saveRDS(eMat_gene, "eMat_with_symbols.rds")
+```
