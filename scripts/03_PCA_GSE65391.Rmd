@@ -1,0 +1,85 @@
+---
+title: "GSE65391"
+author: '520595273'
+date: "2025-04-15"
+output: html_document
+---
+
+```{r}
+library(dplyr)
+library(tibble)
+library(ggplot2)
+library(ggrepel)
+library(viridis)   
+
+
+expr_df  <- readRDS("eMat_notnormalised.rds")  
+fdata_df <- readRDS("fData.rds")               
+pheno_df <- readRDS("pData_final.rds")      
+
+
+gene_vars   <- apply(expr_df, 1, var)                                           
+top200_genes <- names(sort(gene_vars, decreasing = TRUE))[1:200]           
+expr_200     <- expr_df[top200_genes, ]                             
+
+pca_res_200 <- prcomp(t(expr_200), center = TRUE, scale. = TRUE)
+
+
+ve200 <- pca_res_200$sdev^2 / sum(pca_res_200$sdev^2) * 100
+
+
+
+pca_coords <- as.data.frame(pca_res_200$x[, 1:2]) %>%
+  rownames_to_column("illumina_id")
+
+merged_200 <- pca_coords %>%
+  left_join(pheno_df, by = "illumina_id")
+
+
+rownames(merged_200) <- merged_200$illumina_id
+
+head(merged_200)
+
+
+
+```
+
+
+
+
+
+```{r,warning=FALSE4}
+library(dplyr)
+library(tibble)
+library(ggplot2)
+library(ggrepel)
+library(viridis)  
+
+
+p1 <- ggplot(merged_200, aes(x = PC1, y = PC2, color = group_type)) +
+  geom_point(
+    size = 1,    
+    alpha = 0.8 
+  ) +
+  scale_color_viridis_d(
+    option = "E",  
+    name = "type" 
+  ) +
+  theme_bw(base_size = 14) + 
+  theme(
+    legend.position = "right",
+    plot.title = element_text(size = 16, face = "bold")
+  ) +
+  labs(
+    title = "PCA",
+    x = sprintf("PC1 (%.1f%%)", ve200[1]),
+    y = sprintf("PC2 (%.1f%%)", ve200[2])
+  )
+
+
+print(p1)
+```
+
+
+
+
