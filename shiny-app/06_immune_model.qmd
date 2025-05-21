@@ -656,7 +656,7 @@ nonzero_genes
 What the two vertical lines mean:
 
 | Line | Represents | Interpretation |
-|---------------|-----------|------------------------|
+|---------------------|-------------------|---------------------------------|
 | **Left vertical line** | `lambda.min` | The value of λ that gives **the minimum cross-validated partial likelihood deviance** (i.e., best model fit). ✅ |
 | **Right vertical line** | `lambda.1se` | The **largest** λ value within **1 standard error** of the minimum deviance. It gives a **simpler model** with **fewer variables**, but slightly worse fit. |
 
@@ -679,7 +679,7 @@ cvfit \<- cv.glmnet(X, y, family = "cox", alpha = 1)
 -   **Interpretability:** Sparse — only genes with non-zero coefficients are selected
 
 | Component | Description |
-|----|----|
+|------------------------------------|------------------------------------|
 | **Predictors** | Expression of LASSO-selected genes (`genes_to_use`) |
 | **Target** | Time to flare (via `Surv(time, status)`) |
 | **Model type** | LASSO-penalized Cox proportional hazards model |
@@ -802,6 +802,9 @@ This Kaplan–Meier plot compares the **time to flare** (defined as a ≥3 point
     ## 6.2 Survival Curves by Immune Subtype × Risk Group
 
     ```{r}
+    df_plot <- df_plot %>%
+      mutate(immune_risk_group = paste(immune_type, "-", risk_group))
+
     group_palette <- c(
       "Innate-dominant - High Risk"   = "#D73027",
       "Innate-dominant - Low Risk"    = "#FC8D59",
@@ -836,7 +839,7 @@ This Kaplan–Meier plot compares the **time to flare** (defined as a ≥3 point
       theme_minimal(base_size = 15)
 
     ggplotly(p_clean, tooltip = "text")
-
+    #saveRDS(df_cox_filtered, "data/df_cox_filtered.rds")
     ```
 
     📊 Interpretation
