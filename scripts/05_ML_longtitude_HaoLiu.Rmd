@@ -1,0 +1,414 @@
+---
+title: "ML_longtitude"
+author: '520595273'
+date: "2025-05"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r}
+library(caret)
+
+library(dplyr)
+
+
+
+set.seed(3888)
+
+
+
+emat  <- readRDS("eMat_with_symbols.rds")
+
+pdata <- readRDS("pData_final.rds")
+
+
+
+common_samps  <- base::intersect(colnames(emat), rownames(pdata))
+
+emat_matched  <- emat[, common_samps]
+
+pdata_matched <- pdata[common_samps, ]
+
+
+
+expr_t  <- t(emat_matched)
+
+pca_res <- prcomp(expr_t, center = TRUE, scale. = TRUE)
+
+
+
+var_exp <- pca_res$sdev^2 / sum(pca_res$sdev^2)
+
+cum_var <- cumsum(var_exp)
+
+N       <- which(cum_var >= 0.80)[1]
+
+
+
+
+pc_df            <- as.data.frame(pca_res$x[, 1:N])
+
+pc_df$group_type <- factor(pdata_matched$group_type)
+
+
+
+
+pc_df <- pc_df[complete.cases(pc_df), ]
+
+
+
+
+train_idx <- createDataPartition(pc_df$group_type, p = 0.8, list = FALSE)
+
+train_df  <- pc_df[train_idx, ]
+
+test_df   <- pc_df[-train_idx, ]
+
+
+true_levels         <- levels(train_df$group_type)
+
+train_df$group_type <- factor(train_df$group_type, levels = true_levels)
+
+test_df$group_type  <- factor(test_df$group_type,  levels = true_levels)
+
+
+
+tr_ctrl <- trainControl(
+
+  method   = "cv",
+
+  number   = 5,
+
+  sampling = "up"     
+
+)
+
+
+
+rf_model <- train(
+
+  group_type ~ .,
+
+  data      = train_df,
+
+  method    = "rf",
+
+  trControl = tr_ctrl,
+
+  importance= TRUE
+
+)
+
+
+
+
+pred <- predict(rf_model, test_df)
+
+pred <- factor(pred, levels = true_levels)
+
+cm   <- confusionMatrix(data = pred, reference = test_df$group_type)
+
+print(cm)
+
+```
+```{r}
+library(tidymodels)
+library(dplyr)
+library(slider)
+library(ggplot2)
+library(vip)
+set.seed(2025)
+
+emat  <- readRDS("eMat_with_symbols.rds")
+pdata <- readRDS("pData_final.rds")
+top1  <- read.csv("top_200_genes_one_timepoint.csv", stringsAsFactors = FALSE)[,1]
+top2  <- read.csv("top_200_genes_two_timepoints.csv", stringsAsFactors = FALSE)[,1]
+
+dim(emat); head(rownames(emat),5)
+dim(pdata); glimpse(pdata)
+length(top1); length(top2); head(top1,5)
+
+
+```
+
+```{r}
+library(dplyr)
+
+pdata <- pdata %>%
+ 
+  mutate(
+    sledai    = as.numeric(sledai),
+    visit_num = as.integer(visit_count)
+  ) %>%
+
+  filter(!is.na(sledai)) %>%
+
+  arrange(patient_id, visit_num) %>%
+  group_by(patient_id) %>%
+  mutate(
+    flare      = if_else(sledai > 5, 1L, 0L),
+    next_flare = lead(flare)
+  ) %>%
+  ungroup() %>%
+  filter(!is.na(next_flare))
+
+ 
+glimpse(
+  pdata %>%
+    select(patient_id, visit_num, sledai, flare, next_flare) %>%
+    slice(1:10)
+)
+
+table(pdata$flare,      useNA = "ifany")
+table(pdata$next_flare, useNA = "ifany")
+
+
+```
+```{r}
+library(dplyr)
+
+expr_df <- as.data.frame(t(emat))
+expr_df$illumina_id <- rownames(expr_df)
+
+data_raw <- pdata %>%
+  left_join(expr_df, by = "illumina_id")
+
+cat("pdata rows:", nrow(pdata), "\n")
+cat("data_raw rows:", nrow(data_raw), "\n")
+
+glimpse(
+  data_raw %>%
+    select(illumina_id, patient_id, visit_num, sledai, flare, next_flare) %>%
+    slice(1:5)
+)
+
+
+```
+
+```{r}
+library(dplyr)
+library(slider)
+
+data_feat <- data_raw %>%
+  group_by(patient_id) %>%
+  arrange(visit_num) %>%
+  mutate(
+    
+    across(all_of(top2),
+           ~ .x - lag(.x),
+           .names = "delta_{.col}"),
+    across(all_of(top2),
+           ~ slide_dbl(.x, mean, .before = 1, .complete = TRUE),
+           .names = "roll2_{.col}"),
+    flare_count = cumsum(lag(next_flare, default = 0))
+  ) %>%
+  ungroup()
+
+glimpse(
+  data_feat %>%
+    select(patient_id, visit_num,
+           starts_with("delta_"),
+           starts_with("roll2_"),
+           flare_count) %>%
+    slice(1:5)
+)
+
+cat("data_raw rows:", nrow(data_raw), "\n",
+    "data_feat rows:", nrow(data_feat), "\n")
+
+```
+
+```{r}
+library(dplyr)
+library(tidymodels)
+library(themis)
+
+data_feat <- data_feat %>%
+  mutate(
+    age    = as.numeric(age),
+    ds_dna = as.numeric(ds_dna)
+  )
+
+preds_FS1 <- top1
+preds_FS2 <- c(top1, "age", "gender", "ds_dna")
+preds_FS3 <- c(preds_FS2, paste0("delta_", top2))
+preds_FS4 <- c(preds_FS3, paste0("roll2_",  top2))
+preds_FS5 <- c(preds_FS4, "flare_count")
+
+make_recipe <- function(preds) {
+  df_sub <- data_feat %>%
+    select(next_flare, any_of(preds))
+  
+  recipe(next_flare ~ ., data = df_sub) %>%
+   
+    step_mutate(next_flare = factor(next_flare)) %>%
+   
+    step_mutate(
+      age    = as.numeric(age),
+      ds_dna = as.numeric(ds_dna)
+    ) %>%
+    
+    step_zv(all_numeric_predictors()) %>%
+    
+    step_impute_median(all_numeric_predictors()) %>%
+  
+    step_string2factor(gender) %>%
+    step_upsample(next_flare)
+}
+
+recipes_list <- list(
+  FS1 = make_recipe(preds_FS1),
+  FS2 = make_recipe(preds_FS2),
+  FS3 = make_recipe(preds_FS3),
+  FS4 = make_recipe(preds_FS4),
+  FS5 = make_recipe(preds_FS5)
+)
+
+recipes_list$FS3
+
+
+```
+```{r}
+library(tidymodels)
+
+
+lr_spec <- logistic_reg() %>%
+  set_engine("glm") %>%
+  set_mode("classification")
+
+rf_spec <- rand_forest(trees = 500, mtry = 50, min_n = 5) %>%
+  set_engine("ranger", importance = "impurity") %>%
+  set_mode("classification")
+
+cv5 <- vfold_cv(data_feat %>% select(next_flare, any_of(preds_FS3)), 
+                v = 5, 
+                strata = next_flare)
+
+wf_lr <- workflow() %>%
+  add_recipe(recipes_list$FS3) %>%
+  add_model(lr_spec)
+
+wf_rf <- workflow() %>%
+  add_recipe(recipes_list$FS3) %>%
+  add_model(rf_spec)
+
+res_lr <- fit_resamples(
+  wf_lr,
+  cv5,
+  metrics = metric_set(roc_auc, accuracy),
+  control = control_resamples(save_pred = TRUE)
+)
+
+res_rf <- fit_resamples(
+  wf_rf,
+  cv5,
+  metrics = metric_set(roc_auc, accuracy),
+  control = control_resamples(save_pred = TRUE)
+)
+
+metrics_lr <- collect_metrics(res_lr)
+metrics_rf <- collect_metrics(res_rf)
+
+print(metrics_lr)
+print(metrics_rf)
+
+```
+
+```{r}
+library(tidymodels)
+library(ggplot2)
+library(vip)
+
+best_wf <- workflow() %>%
+  add_recipe(recipes_list$FS3) %>%
+  add_model(rf_spec)
+
+set.seed(2025)
+split_final <- initial_split(data_feat, strata = next_flare)
+
+final_res <- last_fit(
+  best_wf,
+  split_final,
+  metrics = metric_set(roc_auc, accuracy)
+)
+
+collect_metrics(final_res)
+
+preds_final <- collect_predictions(final_res)
+roc_tbl <- roc_curve(preds_final, truth = next_flare, .pred_1)
+autoplot(roc_tbl) + ggtitle("Final ROC (FS3 + RF)")
+
+final_model <- extract_fit_parsnip(final_res$.workflow[[1]])$fit
+vip(final_model) + ggtitle("Variable Importance (FS3 + RF)")
+
+```
+
+
+
+```{r}
+library(caret)
+library(dplyr)
+
+set.seed(3888)
+
+emat  <- readRDS("eMat_with_symbols.rds")
+pdata <- readRDS("pData_final.rds")
+
+common_samps   <- intersect(colnames(emat), rownames(pdata))
+emat_matched   <- emat[, common_samps]
+pdata_matched  <- pdata[common_samps, ]
+
+pdata_matched <- pdata_matched %>%
+  mutate(
+    sledai = as.numeric(sledai),         
+    flare  = factor(if_else(sledai > 5, "yes", "no"))
+  )
+
+expr_t  <- t(emat_matched)
+pca_res <- prcomp(expr_t, center = TRUE, scale. = TRUE)
+
+var_exp <- pca_res$sdev^2 / sum(pca_res$sdev^2)
+cum_var <- cumsum(var_exp)
+N       <- which(cum_var >= 0.80)[1]
+
+pc_df      <- as.data.frame(pca_res$x[, 1:N])
+pc_df$flare <- pdata_matched$flare
+
+pc_df <- pc_df[complete.cases(pc_df), ]
+
+train_idx <- createDataPartition(pc_df$flare, p = 0.8, list = FALSE)
+train_df  <- pc_df[train_idx, ]
+test_df   <- pc_df[-train_idx, ]
+
+true_levels        <- levels(train_df$flare)
+train_df$flare    <- factor(train_df$flare, levels = true_levels)
+test_df$flare     <- factor(test_df$flare,  levels = true_levels)
+ 
+tr_ctrl <- trainControl(
+  method   = "cv",
+  number   = 5,
+  sampling = "up"      
+)
+
+rf_model <- train(
+  flare    ~ .,
+  data     = train_df,
+  method   = "rf",
+  trControl= tr_ctrl,
+  importance= TRUE
+)
+
+pred <- predict(rf_model, test_df)
+pred <- factor(pred, levels = true_levels)
+cm   <- confusionMatrix(data = pred, reference = test_df$flare)
+print(cm)
+
+```
+```{r}
+pdata
+```
+
