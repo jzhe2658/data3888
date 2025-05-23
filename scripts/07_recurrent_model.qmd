@@ -1,0 +1,229 @@
+---
+subtitle: "PWP"
+author: "(Place your name/Unikey/SID)"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+format:
+  html:
+    code-tools: true
+    code-fold: true
+    fig_caption: yes
+    number_sections: yes
+    embed-resources: true
+    theme: flatly
+    css: 
+      - https://use.fontawesome.com/releases/v5.0.6/css/all.css
+    toc: true
+    toc_depth: 4
+    toc_float: true
+execute:
+  echo: true
+  tidy: true
+bibliography: references.bib 
+---
+
+# Data preprocess
+
+```{r}
+library(dplyr)
+library(tidyverse)
+# Load data
+pData <- readRDS("data/pData_final.rds")
+eMat <- readRDS("data/eMat_with_symbols.rds")
+top200 <- read.csv("data/top_200_genes_two_timepoints.csv")
+
+# Select top genes
+top_genes <- top200 %>% arrange(P.Value) %>% pull(X) %>% head(50)
+genes_to_use <- intersect(top_genes, rownames(eMat))
+
+pData <- pData %>%
+  mutate(
+    sledai = as.numeric(sledai),
+    visit = as.numeric(visit),
+    cumulative_time = as.numeric(cumulative_time),
+    days_since_last_visit = as.numeric(days_since_last_visit),
+    patient_id = as.character(patient_id)  # Ensure ID is consistent for grouping
+  ) %>%
+  arrange(patient_id, visit) %>%
+  group_by(patient_id) %>%
+  mutate(
+    sledai_next = lead(sledai),
+    sledai_change = sledai_next - sledai,
+    status = ifelse(!is.na(sledai_change) & sledai_change >= 3, 1, 0),
+    start_time = lag(cumulative_time, default = 0),
+    stop_time = cumulative_time,
+    flare_number = cumsum(status),
+    patient_str = sprintf("%03d", as.integer(patient_id)),
+    visit_str = sprintf("%02d", visit),
+    sample_id = paste0(group_type, "_", patient_str, "_V", visit_str)
+  ) %>%
+  ungroup()
+
+
+```
+
+```{r}
+# --- Prepare expression matrix ---
+eMat_subset <- eMat[genes_to_use, ]
+eMat_transposed <- as.data.frame(t(eMat_subset))
+eMat_transposed$sample_id <- rownames(eMat_transposed)
+
+# --- Merge with pData ---
+df_pwp <- merge(eMat_transposed, pData, by = "sample_id") %>%
+  filter(!is.na(status) & !is.na(start_time) & !is.na(stop_time) & stop_time > start_time)
+
+# Define clinical variables
+clinical_vars <- c("neutrophil_count", "lymphocyte_count")
+
+# Keep essential columns
+df_pwp_filtered <- df_pwp %>%
+  select(
+    patient_id, sample_id, start_time, stop_time, status, flare_number,
+    any_of(c(clinical_vars, genes_to_use))
+  ) %>%
+  mutate(
+    neutrophil_count = as.numeric(neutrophil_count),
+    lymphocyte_count = as.numeric(lymphocyte_count)
+  )
+
+# Immune profile classification
+df_pwp_filtered <- df_pwp_filtered %>%
+  mutate(
+    immune_type = case_when(
+      neutrophil_count > median(neutrophil_count, na.rm = TRUE) & lymphocyte_count <= median(lymphocyte_count, na.rm = TRUE) ~ "Innate-dominant",
+      lymphocyte_count > median(lymphocyte_count, na.rm = TRUE) & neutrophil_count <= median(neutrophil_count, na.rm = TRUE) ~ "Adaptive-dominant",
+      TRUE ~ "Mixed"
+    )
+  )
+
+gene_cols <- genes_to_use[genes_to_use %in% colnames(df_pwp_filtered)]
+
+df_pwp_filtered <- df_pwp_filtered %>%
+  select(
+    patient_id, sample_id, start_time, stop_time, status, flare_number,
+    immune_type,
+    neutrophil_count, lymphocyte_count,
+    all_of(gene_cols)
+  )
+
+df_pwp_filtered
+```
+
+Now df_pwp_filtered contains:
+
+-   One row per **flare interval**
+
+-   `start_time`, `stop_time`, and `status` for the PWP model
+
+-   `flare_number` for `strata()` in `coxph` (**order of the flare** for a patient)
+
+-   `patient_id` for `id =`
+
+-   Gene expression and clinical covariates
+
+# Model
+
+```{r}
+
+# Combine all predictor variables
+predictors <- c("neutrophil_count", "lymphocyte_count", genes_to_use)
+
+# Build formula string
+cox_formula <- as.formula(
+  paste("Surv(start_time, stop_time, status) ~",
+        paste(sprintf("`%s`", predictors), collapse = " + "),
+        "+ strata(flare_number)")
+)
+
+library(survival)
+
+pwp_model <- coxph(
+  formula = cox_formula,
+  data = df_pwp_filtered,
+  id = df_pwp_filtered$patient_id
+)
+
+summary(pwp_model)
+
+# Concordance statistic (model performance)
+pwp_model$concordance
+
+# Significant genes
+broom::tidy(pwp_model) %>% filter(p.value < 0.05)
+
+```
+
+```{r}
+library(ggplot2)
+
+ggplot(df_pwp_filtered, aes(x = immune_type, y = risk_score, fill = immune_type)) +
+  geom_boxplot() +
+  theme_minimal() +
+  labs(title = "Predicted Flare Risk by Immune Subtype",
+       y = "Predicted Risk Score",
+       x = "Immune Profile") +
+  theme(legend.position = "none")
+```
+
+```{r}
+risk_scores <- predict(pwp_model, newdata = df_pwp_filtered, type = "risk")
+df_pwp_filtered$risk_score <- risk_scores
+library(survival)
+library(survminer)
+
+# Median split
+df_pwp_filtered <- df_pwp_filtered %>%
+  mutate(risk_group = ifelse(risk_score > median(risk_score, na.rm = TRUE), "High Risk", "Low Risk"))
+
+# Plot KM survival
+fit <- survfit(Surv(start_time, stop_time, status) ~ risk_group, data = df_pwp_filtered)
+
+ggsurvplot(fit, data = df_pwp_filtered,
+           title = "Flare-Free Survival by Risk Group",
+           xlab = "Time (Days)",
+           ylab = "Flare-Free Probability",
+           risk.table = TRUE,
+           palette = c("steelblue", "firebrick"))
+
+```
+
+```{r mcf-plot, fig.cap = "MCF by Risk Group", fig.width = 7, fig.height = 5}
+library(reda)
+library(ggplot2)
+
+# Prepare data: must have ID, start, stop, event
+df_mcf <- df_pwp_filtered %>%
+  select(patient_id, start_time, stop_time, status)
+
+# Create Recur object (required by reda)
+df_mcf$Recur <- with(df_mcf, Recur(time = stop_time, id = patient_id, event = status, origin = start_time))
+
+# Fit MCF
+mcf_fit <- mcf(Recur ~ 1, data = df_mcf)
+
+# Plot: cumulative mean number of flares per patient over time
+plot(mcf_fit_group,
+     conf.int = TRUE,
+     col = c("firebrick", "steelblue"),
+     lwd = 2,
+     xlab = "Days Since First Visit",
+     ylab = "Cumulative Mean Number of Flares",
+     main = "MCF by Risk Group (PWP Model)")
+legend("topleft", legend = c("High Risk", "Low Risk"),
+       col = c("firebrick", "steelblue"), lty = 1, lwd = 2)
+
+```
+
+```{r}
+df_mcf$Recur <- with(df_pwp_filtered, Recur(time = stop_time, id = patient_id, event = status, origin = start_time))
+df_mcf$risk_group <- df_pwp_filtered$risk_group  # make sure it's carried over
+
+# MCF by risk group
+mcf_fit_group <- mcf(Recur ~ risk_group, data = df_mcf)
+
+autoplot(mcf_fit_group) +
+  labs(title = "MCF by Risk Group (PWP Model)",
+       x = "Days Since First Visit",
+       y = "Cumulative Mean Number of Flares") +
+  theme_minimal()
+
+```
