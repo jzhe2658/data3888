@@ -1,0 +1,100 @@
+Gene,Function,SLE_Relevance
+KRT8,Cytoskeletal protein in epithelial cells,Marker of epithelial cell stress; upregulated in lupus nephritis and immune activation.
+FAM227A,Putative gene involved in transcription regulation,Differentially expressed in autoimmune disorders; potential regulator in immune system imbalance.
+SNORA20,Small nucleolar RNA involved in ribosomal RNA biogenesis,May contribute to autoantigen processing and dysregulation of RNA metabolism in SLE.
+BCL2A1,Anti-apoptotic member of the BCL2 family,Upregulated in SLE; supports survival of autoreactive B and T cells.
+IFI27,Interferon-stimulated gene involved in antiviral defense,Strongly induced by type I IFN pathway; part of SLE-specific interferon signature.
+ISG15,Ubiquitin-like protein involved in innate immune response,Highly upregulated in lupus; contributes to IFN pathway dysregulation.
+MX1,GTPase induced by interferon signaling,Marker of active SLE flares; involved in IFN-alpha response.
+LY6E,"Modulator of immune response, interferon pathway component",Elevated in lupus; associated with monocyte activation and disease severity.
+STAT1,Transcription factor mediating responses to cytokines and interferons,Key mediator of type I IFN response; consistently overexpressed in lupus PBMCs.
+MYF5,Myogenic transcription factor,"Not directly linked to SLE, but involved in muscle lineage and tissue repair"
+MIR1290,MicroRNA involved in post-transcriptional regulation,Involved in immune cell signaling and cytokine production; may affect T-cell activation in SLE. May regulate cytokine signaling; altered in autoimmune conditions
+OCM2,Oncomodulin 2; calcium-binding protein,Limited evidence in SLE; possibly involved in retinal inflammation
+CNTN2,Cell adhesion molecule (neural),No direct SLE link; may influence neuroinflammation
+RAET1L,Ligand for NKG2D receptors (immune activating),Involved in NK and T cell activation; possibly implicated in autoimmunity
+OR6C70,Olfactory receptor,Not relevant to SLE
+KRTAP5-AS1,Antisense RNA gene; may regulate keratin-associated protein genes,Unknown relevance in SLE
+ZNF595,Zinc finger protein; possible transcriptional regulation,No confirmed role in SLE
+TEX36-AS1,Antisense RNA; function not well characterized,Unknown in SLE; may regulate testis-expressed genes
+MDH1B,Mitochondrial enzyme involved in the citric acid cycle and energy metabolism.,Not directly linked to SLE; no evidence of immune-related dysregulation.
+CLDN8,Tight junction protein that helps maintain epithelial barrier integrity.,No direct association with SLE; primarily studied in gastrointestinal function.
+GLB1L3,Beta-galactosidase-like protein with unclear biological role., No known relevance to lupus or immune system regulation.
+SLC45A2,Membrane transporter involved in melanin synthesis and pigmentation.,Not implicated in lupus or immune pathway activity.
+PLPPR1,Regulates neuronal growth and signaling through phospholipid modification.,No direct role in SLE has been reported.
+LRRC30,Leucine-rich repeat protein possibly involved in protein–protein interactions.,No current evidence linking it to SLE.
+HEPACAM,Cell adhesion molecule influencing cell migration and morphology.,Not associated with SLE; functions mainly in cancer and brain tissue.
+LINC01144,Long non-coding RNA with potential regulatory roles in gene expression.,No known connection to lupus or autoimmune disease pathways.
+ST3GAL3,Enzyme that catalyzes glycosylation of glycoproteins and glycolipids.,Not directly linked to SLE but may affect immune glycosylation profiles.
+LINC00971,Long intergenic non-coding RNA; function remains largely uncharacterized.,No reported association with SLE or immune dysregulation.
+AGO1,Component of RNA-induced silencing complex; regulates gene expression via RNA interference.,"Autoantibodies against AGO1 detected in some SLE patients, suggesting immune involvement."
+FOXO3B,Transcription factor involved in apoptosis and oxidative stress response.,"No established connection to SLE, unlike its paralog FOXO3A."
+ZNF57,Zinc finger protein likely involved in transcriptional regulation.,No evidence supports a role in lupus or interferon pathways
+TNFRSF12A,Tumor necrosis factor receptor involved in inflammation and cell survival.,May influence immune activation; relevance to SLE still under investigation.
+UTP25,Nucleolar protein participating in ribosome biogenesis and RNA processing.,No reported immune-related function or SLE involvement.
+HSD17B13,Enzyme involved in lipid metabolism and steroid hormone regulation,No direct link to SLE but is linked to decreased liver inflammation.
+LY6H,"Cell surface protein belonging to the Ly6 family, possibly involved in neural or immune signaling.",No direct link to lupus; immune relevance is still unclear.
+LINC01193,Long non-coding RNA; potential regulatory role in transcription or chromatin remodeling.,No known association with SLE or autoimmune diseases.
+PLN,"Regulates calcium handling in cardiac muscle cells, modulating contractility.","Not implicated in SLE; cardiac relevance is structural, not immunological."
+RRP1,Nuclear protein involved in ribosomal RNA processing and ribosome assembly.,No known role in SLE or immune response pathways.
+TRIM50,E3 ubiquitin ligase involved in protein degradation and regulation of immune signaling.,"While TRIM family members are implicated in immunity, no SLE-specific link for TRIM50 is reported."
+DIO3OS,"Long non-coding RNA antisense to the DIO3 gene, possibly regulates thyroid hormone metabolism.",No established role in lupus or interferon-related activity.
+TAS2R8,Bitter taste receptor protein expressed mainly in the tongue and airway epithelium.,No known involvement in immune response or lupus pathogenesis.
+HYAL2,Enzyme that degrades hyaluronic acid in the extracellular matrix.,"While extracellular matrix changes occur in SLE, HYAL2 has not been directly implicated."
+MIR346,MicroRNA involved in regulating mRNA stability and immune gene expression.,May contribute to immune cell signaling; suggested involvement in autoimmune processes including SLE.
+GARIN6,Not well characterized; limited functional data available.,No data available; no reported link to lupus or immunity.
+LINC00640,Long non-coding RNA with unknown function; expression varies across tissues.,No direct association with SLE or immune dysfunction reported.
+OR2A2,Olfactory receptor involved in the detection of odorant molecules; member of the G protein-coupled receptor family.,No known link to SLE; primarily expressed in the olfactory epithelium with no immune-related function identified.
+CCNYL4,Cyclin Y-like protein involved in cell cycle regulation and possibly Wnt signaling.,No established association with lupus; role in immune response is not clearly defined.
+C6orf118,Uncharacterized protein; May participate in cell signaling or transcriptional regulation,No known correlation with SLE
+CFAP77,Cilia and flagellar related proteins,Speculative role in mucociliary clearance or inflammation; no direct SLE link
+PGD, Phosphogluconate dehydrogenase,The enzymes involved in the pentose phosphate pathway are involved in the production of NADPH; but their role in SLE has not been confirmed; May participate in oxidative stress response
+AGO4,Argonaute protein in RNA silencing and microRNA pathways,Limited evidence in SLE; AGO family linked to autoimmunity
+PSKH1, Serine/threonine kinase, The regulation of mRNA splicing and centrosome dynamics has no clear role in SLE; Potential role in cell cycle regulation
+GPALPP1,Gpatch domain protein; exact function unknown,No known SLE relevance
+DPY19L3,Speculative C-mannosyltransferase, Participate in protein glycosylation and have no direct connection with SLE; Glycosylation changes observed in some autoimmune diseases
+OR52E6,Olfactory receptor,Although olfactory receptors may be expressed in immune cells; there is currently no evidence to suggest a direct correlation; and indirect connections are limited to general immune regulation speculation.
+PFKFB4,Regulates glycolysis,Limited SLE evidence; may affect immune cell metabolism
+SLC27A6,Fatty acid transporter,Not directly related to SLE; lipid metabolism may influence inflammation
+EFCAB5,EF-hand calcium-binding protein,No confirmed SLE link
+SNORD27,Small nucleolar RNA; modifies rRNA, its abnormal expression may affect the proliferation and function of immune cells; indirectly participating in the pathogenesis of SLE.
+VTRNA1-2,Vault RNA; RNA transport and immune modulation,Potential immune relevance; limited SLE evidence
+SCT,Secretin hormone,Not relevant to SLE
+SNORD52,Small nucleolar RNA; rRNA methylation,No clear SLE role
+HTR1E,Serotonin receptor,No known SLE relevance
+RGL4,Signaling protein,No clear SLE association
+SLC6A4,Serotonin transporter,Its polymorphism may affect the production of autoantibodies in SLE patients; especially in the neuroimmune axis.
+LSMEM2,Membrane protein; function unclear,No known SLE relevance
+LIN7B,Scaffolding protein in synaptic function,No confirmed SLE role
+MIR639,MicroRNA,Unclear role; not directly linked to SLE
+TKT,Transketolase in pentose phosphate pathway,Possible metabolic regulation; no direct SLE evidence
+HOXD10,Developmental transcription factor,Not related to SLE
+MIR1292,MicroRNA,Not confirmed in SLE
+GUSBP10,Pseudogene,No relevance to SLE
+CFHR1,Complement regulation, Deficiency or deletion associated with autoimmunity including SLE
+IMPA2,Inositol metabolism,No strong SLE evidence
+WIPI1,Autophagy-related protein,Limited evidence for SLE involvement
+TEPSIN,Vesicle transport protein,No known SLE relevance
+SHBG,Sex hormone-binding globulin,May influence hormones; no direct SLE link
+POLN,DNA repair polymerase,Uncertain SLE relevance
+CYB5RL,Redox enzyme,No direct SLE role
+OR5J2,Olfactory receptor,
+VSIG10,Possible adhesion molecule,No confirmed SLE role
+MIER3,Transcription regulator,No confirmed SLE relevance
+LDHC,Testis-specific lactate dehydrogenase,No relevance to SLE
+PASD1,Cancer/testis antigen,No direct SLE evidence
+ZNF470,Zinc finger transcription factor,Unclear SLE role
+TNK1,Tyrosine kinase; regulates cell death and signaling,Possible immune role; limited SLE data
+LRRC52,Potassium channel regulator,No SLE relevance
+LALBA,Alpha-lactalbumin,Not related to SLE
+HGC6.3,Uncharacterized gene,No SLE information
+FIGNL1,DNA repair ATPase,No confirmed SLE link
+CDNF,Neurotrophic factor,No relevance to SLE
+SPEM1,Spermatid maturation protein,No relevance to SLE
+MIRLET7BHG,Long noncoding RNA; host for let-7b,Possible immune modulation; limited SLE evidence
+NOS3,Nitric oxide synthase 3,May contribute to vascular dysfunction in SLE
+AFAP1-AS1,Long noncoding RNA; cytoskeleton regulation,Potential regulatory role; not confirmed in SLE
+TNKS2,Tankyrase-2; telomere/Wnt pathway,Limited immune role; no clear SLE link
+SDHAF4,Succinate dehydrogenase assembly factor,No relevance to SLE
+ANGPTL8,Metabolic regulator,Unconfirmed SLE association
+KRT5,Structural protein; part of the intermediate filament family.,"Although KRT5 is not a classic immune gene, recent studies suggest that keratin expression patterns can reflect inflammatory skin involvement in SLE, particularly in patients with cutaneous lupus erythematosus. Its upregulation may be indicative of keratinocyte stress responses, which are commonly seen in lupus skin lesions."
