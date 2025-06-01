@@ -1,70 +1,44 @@
-# DATA3888
-This project uses gene expression and clinical data from the GSE88884 study to explore biomarkers and develop a risk prediction model for Systemic Lupus Erythematosus (SLE).
+# DATA3888 – Capstone Project Repository
 
-## 📂 Project Structure
+---
 
-- **data/**: Raw and cleaned datasets.
-- **scripts/**: R code files for data cleaning, analysis, and modelling.
-- **results/**: Output files (plots, tables).
-- **shiny_app/**: Optional folder for future deployment of interactive risk calculator.
+## 📚 Project Overview
 
-## Data Access
-The large raw datasets are NOT uploaded to GitHub due to size limits. Download datasets from this link:
-``` perl
-https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE88884
-```
-Place them in the data/ folder to run the analysis.
+This repository contains all scripts, workflows, and documentation for our DATA3888 capstone project, which aims to predict SLE (Systemic Lupus Erythematosus) risk using gene expression and clinical datasets.
 
-Link to google drive for files that are too large for github:
-``` perl
-https://drive.google.com/drive/folders/1X8KMvZ5hE9LekCa_Tg7TOucRaRggEeFA?usp=drive_link
-```
+---
 
-## Branch Workflow
+## 📁 Directory Structure
 
-We follow a **branch-per-task workflow** to collaborate efficiently:
+- **DATA3888 Final Submission/**
+  - Contains the final reproducible workflow, the Shiny App for risk prediction, and sample test data.
+  - Includes a detailed README with step-by-step instructions for reproducing the analysis, running the app, and testing the pipeline.
+- **Final process script/**
+  - Archives scripts and code from exploratory and intermediate analyses during project development.
+- **GSE88884TRIVAL/**
+  - Documents our initial attempts and trials using the GSE88884 dataset before transitioning to the final dataset.
 
-| Branch Name             | Purpose                                                   |
-|------------------------|-----------------------------------------------------------|
-| `main`                 | Stable and merged version of all work                     |
-| `data-cleaning`        | Data preprocessing (completed)                             |
-| `eda-analysis`        | Exploratory Data Analysis (completed)                 |
-| `differential-analysis`| Differential Expression Analysis (completed)         |
-| `model-training`      | Predictive Model Development ()             |
-| `shiny-app`           | Shiny App Deployment (later)                    |
+---
 
+## 📝 How to Use This Repository
 
-## 👥 How to Contribute
+1. **For direct reproduction of our main workflow, please go to the `DATA3888 Final Submission/` folder.**
+   - You will find all final scripts, app code, and sample data, along with a comprehensive usage guide in its dedicated README.
+2. **For reference or further study, you may browse the exploratory scripts in `Final process script/` and `GSE88884TRIVAL/`.**
+   - These directories showcase our methodological iterations and document alternative approaches tried during the project.
 
-1. Clone the repository:
-```bash
-git clone https://github.com/jzhe2658/data3888.git
-cd data3888
-```
-2. Checkout the data-cleaning branch
-```bash
-git checkout data-cleaning
-```
+---
 
-3. Create your own feature branch
-For example, if you are doing EDA: (please follow the table aboove)
-```bash
-git checkout eda-analysis
-```
+## 📌 Additional Notes
 
-4. Work on your scripts
-Place your .qmd/.Rmd or .R script in the scripts/ folder.
+- **Data Download:**  
+  Due to file size limitations, the raw and processed datasets are **not included** in this repository. Download links are provided in the Final Submission README.
+- **Reproducibility:**  
+  All code is organized for reproducible research. For setup, dependencies, and detailed instructions, please see the inner README files.
 
-5. Add and commit your changes
-```bash
-git add scripts/02_eda_analysis.qmd
-git commit -m "Add EDA analysis script"
-git push -u origin eda-analysis
-```
+---
 
-6. Open a Pull Request
-Once your analysis is complete, open a pull request to merge your branch into main.
+**For all usage, setup, and demonstration instructions, please refer to the `README.md` inside `DATA3888 Final Submission/`.**
 
-⚠️ Data Size Notice
-Do NOT commit large dataset files (.txt, .rds, .csv) to the repository.
-Only analysis scripts and documentation should be committed.
+---
+
