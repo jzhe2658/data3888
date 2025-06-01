@@ -1,0 +1,889 @@
+---
+title: "Predicting Lupus Flare Risk Using Longitudinal Gene Expression and Immune Subtype Stratification"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+format:
+  html:
+    code-tools: true
+    code-fold: true
+    fig_caption: yes
+    number_sections: yes
+    embed-resources: true
+    theme: flatly
+    css: 
+      - https://use.fontawesome.com/releases/v5.0.6/css/all.css
+    toc: true
+    toc_depth: 4
+    toc_float: true
+execute:
+  echo: true
+  tidy: true
+  warning: false
+  message: false
+  error: false
+bibliography: references.bib 
+---
+
+# **Executive Summary**
+
+Systemic lupus erythematosus (SLE) is a chronic autoimmune condition characterized by unpredictable flares that can lead to irreversible organ damage if not detected early. Traditional monitoring through infrequent clinical visits often fails to capture these flares in time. This project aimed to develop a predictive model using gene expression data from blood to rank stable pediatric SLE patients by their short-term flare risk, enabling more timely intervention and improved outcomes.
+
+We benchmarked twelve candidate survival models combining two algorithms (Cox and LASSO-Cox), three transcriptomic feature representations (raw values, log fold change, rate of change), and two gene set sizes (top 50 and top 100). The top-performing model was a **LASSO Cox model using rate-of-change features and the top 50 genes**, achieving a concordance index (C-index) of **0.63**. This model outperformed other configurations and was also supported by **pathway enrichment analysis**, which revealed strong alignment with known SLE biology, including inflammation regulation, fibroblast chemotaxis, and innate immune activation.
+
+We additionally explored whether stratifying patients by immune subtype (innate-dominant, adaptive-dominant, mixed) could improve prediction. Although subgroup-specific modeling did not enhance performance, survival curves indicated that immune classification may aid in clinical interpretation within high-risk groups.
+
+To support real-world application, we deployed the final model in a **ShinyApp**, enabling clinicians to upload expression data, receive individualized risk scores, visualize key gene contributors, and explore immune subgroup survival trends.
+
+This analysis demonstrates the feasibility and potential clinical value of using dynamic blood transcriptomic data to guide personalized SLE monitoring and prioritization.
+
+For further details, see the github: <https://github.com/jzhe2658/data3888>
+
+# Aim and Background
+
+Systemic lupus erythematosus (SLE) is a chronic autoimmune disease in which the immune system mistakenly attacks the body’s own tissues. The disease is marked by cycles of remission and unpredictable flare-ups, where inflammation sharply worsens and can affect organs such as the kidneys, joints, skin, and brain [@bengtsson2016systemic]. These flares are not only difficult to predict but also clinically significant. If treatment is delayed, irreversible organ damage and long-term disability can result [@ceccarelli2023application].
+
+In practice, patients with SLE typically attend scheduled clinical checkups every few months. However, flares can arise in the intervals between these visits. By the time a flare is detected, substantial damage may have already occurred [@durcan2019management]. One simple solution might be to increase the frequency of appointments. However, healthcare systems are already under pressure and this approach is not practical at scale. A more feasible strategy is to develop a system that can assess flare risk and rank currently stable patients based on their likelihood of experiencing a flare. This would help clinicians prioritise high-risk patients for earlier follow-up and treatment, potentially preventing long-term complications [@garris2013healthcare] [@garris2021disease].
+
+Our first aim is to develop a predictive model that uses gene expression data to rank stable SLE patients by their short-term flare risk. We use transcriptomic features from blood, a routinely collected tissue, and explore different representations of gene activity to identify which methods best capture predictive signals [@bengtsson2016systemic].
+
+However, SLE is not a uniform disease. Its heterogeneity is one of its defining challenges. Symptoms differ greatly across patients, and the disease can affect virtually any organ system [@banchereau2016personalized]. This complexity arises from a combination of genetic, environmental, and immunological factors [@tsokos2011systemic]. Heterogeneity not only makes clinical management difficult but also limits the performance of predictive models. A single model trained on the entire population may overlook subgroup-specific risk patterns.
+
+Recent studies suggest that stratifying patients into biologically meaningful subgroups, such as those defined by immune signatures or transcriptomic profiles, can improve prediction and treatment strategies [@banchereau2016personalized] [@thanou2014treatment]. These approaches form the foundation of precision medicine and offer a way to tailor interventions to individual patients [@ceccarelli2023application].
+
+Our second aim is to evaluate whether subgroup-specific modeling can improve predictive performance. We compare stratified models against a population-wide model to assess whether accounting for patient heterogeneity leads to more accurate flare prediction.
+
+# Methods
+
+## **Data Collection (and show understanding of data)**
+
+We used publicly available data from the Gene Expression Omnibus (GEO), accession number GSE65391. This dataset includes longitudinal transcriptomic profiling of pediatric systemic lupus erythematosus (SLE) patients, designed to identify molecular correlates of disease activity. In total, 996 whole blood samples were analyzed, including 924 from 158 SLE patients collected across up to four years, and 72 healthy controls. Samples were profiled using the Illumina HumanHT-12 V4.0 expression beadchip. In addition to gene expression data, the study provides clinical metadata including SLE Disease Activity Index (SLEDAI) scores, visit timing, demographics, and treatment details.
+
+```{r fig-workflow, echo=FALSE, out.width="100%", fig.align="center", fig.cap="Figure X. Overview of our end-to-end workflow: from gene expression preprocessing to predictive modeling, evaluation, and deployment in a Shiny application."}
+knitr::include_graphics("Workflow_diagram.jpeg")
+```
+
+## **Pre-processing**
+
+Prior to modeling, several preprocessing steps were applied to ensure data quality and comparability. The dataset consisted of two distinct batches, which needed to be integrated in order to maximize sample size and increase statistical power. To correct for batch effects, we leveraged the presence of 24 healthy control sabbamples that were intentionally run in both batches (12 per batch), providing a matched set for comparison. For each transcript, the median expression ratio between batches was calculated across these 48 matched samples, and the expression values from all batch 1 samples were adjusted by multiplying by this probe-specific ratio. This correction method was more effective than alternative approaches such as grouped-batch-profile (GBP) normalization or ComBat. Principal component analysis (PCA) confirmed the presence of batch effects before correction and demonstrated improved alignment across batches after adjustment. Following batch correction, raw expression values were log-transformed to stabilize variance across the dynamic range of measurements. Finally, probes were mapped to gene symbols using the Illumina annotation file, and multiple probes mapping to the same gene were collapsed by taking the median expression value.
+
+## **Candidate Model Development**
+
+To predict future SLE flares, we compared twelve candidate models representing all combinations of two survival modeling approaches, three feature engineering strategies, and two levels of feature set size. The first modeling approach was the Cox proportional hazards model, which estimates the association between predictors and the hazard of an event occurring over time and is well suited for clinical time-to-event data. The second approach was L1-regularized Cox regression (LASSO-Cox), which adds an L1 penalty to encourage sparsity and perform automatic feature selection, making it particularly suitable for high-dimensional gene expression data [@Tibshirani1997] [@Simon2011]. These models were tested using three different representations of gene expression: (1) raw expression values at each time point, (2) log fold change (logFC) between each patient's consecutive visits, and (3) rate of change in expression, defined as the difference between visits divided by the number of days elapsed. For each representation, we performed differential expression analysis using limma to identify the genes that best distinguished patients who flared from those who remained stable. The top 50 and top 100 genes ranked by moderated t-statistic were used as input features to each model, allowing us to assess the impact of feature set size on predictive performance.
+
+## **Evaluation Metrics**
+
+We evaluated model performance using 10-fold stratified cross-validation. The primary quantitative performance metric was Harrell’s concordance index (C-index), which reflects how well the model ranks patients by their risk of experiencing a disease flare. For each fold, C-index was computed on the test set for both the Cox and LASSO-Cox models. To complement this quantitative assessment, we also performed gene set enrichment analysis (GSEA) on the feature sets used by the candidate models with the highest C-index. This biological evaluation was used to compare which feature selection method yielded gene sets most consistent with known SLE-related pathways. This dual evaluation approach allowed us to assess not only predictive performance but also biological plausibility of the selected features.
+
+## **Subgrouping**
+
+Prior studies have highlighted that SLE heterogeneity may be partially explained by differences in underlying immune pathways. To investigate whether this heterogeneity influences model performance, we stratified our cohort into three immune subtypes: innate-dominant, adaptive-dominant, and mixed, based on median splits of neutrophil and lymphocyte counts. This stratification approach is supported by previous work suggesting distinct transcriptomic signatures across immune subtypes in SLE [@Qin2015]. We then examined whether immune subtype modified the prognostic utility of our flare prediction model. Patients were assigned into high- or low-risk groups based on whether their model-derived risk score fell above or below the cohort median. Kaplan–Meier survival curves were generated for each combination of risk group and immune subtype, allowing us to assess the interaction between risk and immune classification. As these curves showed differences in flare timing even within the same risk category, we proceeded to investigate whether training separate models within each immune subtype could improve predictive performance. The predictive performance was assessed using the same 10-fold cross validation.
+
+## **Deployment**
+
+To make our flare prediction model clinically actionable, we developed and deployed an interactive web-based ShinyApp designed specifically for use by clinicians. The primary purpose of the app is to generate individualized risk scores that help clinicians rank their currently stable SLE patients by flare risk, enabling more efficient prioritization of follow-up and intervention.
+
+Clinicians begin by uploading a patient’s gene expression data in a specified CSV format. The app processes this data and returns a personalized risk score, along with a percentile indicating how the patient compares to the original cohort. Based on this percentile, the app provides general guidance about how urgently the patient should be followed up. This helps clinicians quickly identify high-risk patients who may require closer monitoring.
+
+To enhance interpretability, the app displays a dynamic bar chart showing the genes that most influenced the model’s prediction for that patient. Influence is defined as the product of each gene’s expression value and its corresponding coefficient from the trained LASSO Cox model. The chart presents the top 10 genes by absolute influence, highlighting genes in red that pushed the risk prediction toward a flare and in blue for those that pushed it toward stability. A searchable gene dictionary is included below the chart, allowing clinicians to look up the biological function and known relevance to SLE for each of these genes.
+
+The app also includes a dedicated immune subgroup page. Clinicians can input a patient’s lymphocyte and neutrophil counts, and the app will classify the patient into one of three immune subtypes: innate-dominant, adaptive-dominant, or mixed. The app then displays Kaplan–Meier survival curves stratified by both risk group and immune subtype. This feature is especially useful in cases where multiple patients fall into similar risk percentiles. In such scenarios, immune subgroup information can serve as an additional decision layer, helping clinicians decide whom to prioritize for early follow-up.
+
+This deployment transforms our statistical model into a practical decision support tool. By combining individual risk scoring, interpretability, and immune stratification, the ShinyApp bridges the gap between predictive modeling and real-world clinical prioritization.
+
+# Results
+
+## **Evaluation Results: Cross-Validation**
+
+```{r pre-processing}
+set.seed(100)
+# 1. Data pre-processing
+library(tidyverse)
+# Load data
+eMat <- readRDS("GSE65391_preprocessed/eMat_with_symbols.rds")
+fData <- readRDS("GSE65391_preprocessed/fData.rds")
+pData <- readRDS("GSE65391_preprocessed/pData_final.rds")
+
+# Convert and clean variables
+pData <- pData %>%
+  mutate(
+    sledai = as.numeric(sledai),
+    visit = as.numeric(visit),
+    cumulative_time = as.numeric(cumulative_time),
+    days_since_last_visit = as.numeric(days_since_last_visit),
+    neutrophil_count = as.numeric(neutrophil_count),
+    lymphocyte_count = as.numeric(lymphocyte_count)
+  ) %>%
+  arrange(patient_id, visit) %>%
+  group_by(patient_id) %>%
+  mutate(ordered_visit = row_number(),
+         sledai_next = lead(sledai),
+         sledai_change = sledai_next - sledai) %>%
+  ungroup() %>%
+  filter(group_type != "HEALTHY")
+
+pData$flare_next <- ifelse(pData$sledai_change >= 3, 1, 0)
+
+# Filter for modeling
+pData_filtered <- pData %>% filter(!is.na(sledai_change))
+# Setup survival fields
+pData_filtered <- pData_filtered %>%
+  transmute(
+    row_id = paste("SLE", patient_id, sprintf("V%02d", visit), sep = "_"),
+    patient_id, visit, ordered_visit,
+    sledai, sledai_next, sledai_change, flare_next,
+    days_since_last_visit,
+    start_time = lag(cumsum(days_since_last_visit), default = 0),
+    stop_time = cumsum(days_since_last_visit),
+    cumulative_time, status = flare_next,
+    neutrophil = neutrophil_count,
+    lymphocyte = lymphocyte_count
+  )
+pData_filtered <- as.data.frame(pData_filtered)
+rownames(pData_filtered) <- pData_filtered$row_id
+
+# 2. Immune Sub-type Classification
+neutrophil_median <- median(pData_filtered$neutrophil, na.rm = TRUE)
+lymphocyte_median <- median(pData_filtered$lymphocyte, na.rm = TRUE)
+
+pData_filtered$immune_type <- case_when(
+  pData_filtered$neutrophil > neutrophil_median & pData_filtered$lymphocyte <= lymphocyte_median ~ "Innate-dominant",
+  pData_filtered$lymphocyte > lymphocyte_median & pData_filtered$neutrophil <= neutrophil_median ~ "Adaptive-dominant",
+  TRUE ~ "Mixed"
+)
+pData_filtered$immune_type <- factor(pData_filtered$immune_type)
+```
+
+```{r helper}
+library(dplyr)
+library(purrr)
+library(knitr)
+library(limma)
+library(survival)
+# 3. Model Comparison - 10-fold CV
+evaluate_model_cv <- function(eMat, pData, method = c("raw", "logfc", "rate"), top_n = 100, k = 10) {
+  method <- match.arg(method)
+  folds <- caret::createFolds(pData$status, k = k)
+  cox_cindex <- numeric(k)
+  lasso_cindex <- numeric(k)
+
+  for (i in seq_along(folds)) {
+    test_ids <- rownames(pData)[folds[[i]]]
+    train_ids <- setdiff(rownames(pData), test_ids)
+
+    pdata_train <- pData[train_ids, ]
+    pdata_test <- pData[test_ids, ]
+
+    if (method == "raw") {
+      X_train <- eMat[, train_ids, drop = FALSE]
+      X_test <- eMat[, test_ids, drop = FALSE]
+
+    } else if (method == "logfc") {
+      logfc_list <- list()
+
+      for (pid in unique(pdata_train$patient_id)) {
+        pdata_patient <- pdata_train %>% filter(patient_id == pid) %>% arrange(ordered_visit)
+        if (nrow(pdata_patient) < 2) next
+        sample_ids <- rownames(pdata_patient)
+        for (j in 2:length(sample_ids)) {
+          cur <- sample_ids[j]; prev <- sample_ids[j - 1]
+          if (cur %in% colnames(eMat) && prev %in% colnames(eMat)) {
+            logfc <- eMat[, cur] - eMat[, prev]
+            logfc_list[[cur]] <- logfc
+          }
+        }
+      }
+
+      if (length(logfc_list) == 0) {
+        warning(paste("Skipping fold", i, "- no valid logFC features"))
+        next
+      }
+
+      X_train <- as.data.frame(logfc_list)
+      rownames(X_train) <- rownames(eMat)
+      train_ids <- colnames(X_train)
+      pdata_train <- pdata_train[train_ids, ]
+
+      # Test set logfc
+      logfc_list_test <- list()
+      for (pid in unique(pdata_test$patient_id)) {
+        pdata_patient <- pdata_test %>% filter(patient_id == pid) %>% arrange(ordered_visit)
+        if (nrow(pdata_patient) < 2) next
+        sample_ids <- rownames(pdata_patient)
+        for (j in 2:length(sample_ids)) {
+          cur <- sample_ids[j]; prev <- sample_ids[j - 1]
+          if (cur %in% colnames(eMat) && prev %in% colnames(eMat)) {
+            logfc <- eMat[, cur] - eMat[, prev]
+            logfc_list_test[[cur]] <- logfc
+          }
+        }
+      }
+
+      if (length(logfc_list_test) == 0) {
+        warning(paste("Skipping fold", i, "- no valid logFC test features"))
+        next
+      }
+
+      X_test <- as.data.frame(logfc_list_test)
+      rownames(X_test) <- rownames(eMat)
+      test_ids <- colnames(X_test)
+      pdata_test <- pdata_test[test_ids, ]
+
+    } else if (method == "rate") {
+      rate_list <- list()
+
+      for (pid in unique(pdata_train$patient_id)) {
+        pdata_patient <- pdata_train %>% filter(patient_id == pid) %>% arrange(ordered_visit)
+        if (nrow(pdata_patient) < 2) next
+        sample_ids <- rownames(pdata_patient)
+        for (j in 2:length(sample_ids)) {
+          cur <- sample_ids[j]; prev <- sample_ids[j - 1]
+          days <- pdata_patient$days_since_last_visit[j]
+          if (is.na(days) || days == 0 || cur %in% colnames(eMat) == FALSE || prev %in% colnames(eMat) == FALSE) next
+          rate <- (eMat[, cur] - eMat[, prev]) / days
+          rate_list[[cur]] <- rate
+        }
+      }
+
+      if (length(rate_list) == 0) {
+        warning(paste("Skipping fold", i, "- no valid rate features"))
+        next
+      }
+
+      X_train <- as.data.frame(rate_list)
+      rownames(X_train) <- rownames(eMat)
+      train_ids <- colnames(X_train)
+      pdata_train <- pdata_train[train_ids, ]
+
+      # Test set
+      rate_list_test <- list()
+      for (pid in unique(pdata_test$patient_id)) {
+        pdata_patient <- pdata_test %>% filter(patient_id == pid) %>% arrange(ordered_visit)
+        if (nrow(pdata_patient) < 2) next
+        sample_ids <- rownames(pdata_patient)
+        for (j in 2:length(sample_ids)) {
+          cur <- sample_ids[j]; prev <- sample_ids[j - 1]
+          days <- pdata_patient$days_since_last_visit[j]
+          if (is.na(days) || days == 0 || cur %in% colnames(eMat) == FALSE || prev %in% colnames(eMat) == FALSE) next
+          rate <- (eMat[, cur] - eMat[, prev]) / days
+          rate_list_test[[cur]] <- rate
+        }
+      }
+
+      if (length(rate_list_test) == 0) {
+        warning(paste("Skipping fold", i, "- no valid rate test features"))
+        next
+      }
+
+      X_test <- as.data.frame(rate_list_test)
+      rownames(X_test) <- rownames(eMat)
+      test_ids <- colnames(X_test)
+      pdata_test <- pdata_test[test_ids, ]
+    }
+
+    # Design matrix and DEA
+    design <- model.matrix(~ factor(pdata_train$status))
+    colnames(design) <- c("Intercept", "Flare")
+    fit <- limma::lmFit(X_train, design)
+    fit <- limma::eBayes(fit)
+
+    top_genes_all <- rownames(topTable(fit, coef = 2, number = top_n * 2))
+    top_genes <- intersect(top_genes_all, rownames(X_train))
+    if (length(top_genes) < top_n) {
+      warning(paste("Only", length(top_genes), "valid genes in fold", i, "- skipping"))
+      next
+    }
+    top_genes <- head(top_genes, top_n)
+
+    x_train <- t(X_train[top_genes, , drop = FALSE])
+    x_test  <- t(X_test[top_genes, , drop = FALSE])
+
+    keep_train <- pdata_train$cumulative_time > 0
+    keep_test <- pdata_test$cumulative_time > 0
+
+    x_train <- x_train[keep_train, , drop = FALSE]
+    x_test  <- x_test[keep_test, , drop = FALSE]
+    y_train <- with(pdata_train[keep_train, ], Surv(cumulative_time, status))
+    y_test <- with(pdata_test[keep_test, ], Surv(cumulative_time, status))
+
+    # Fit Cox model
+    cox_cindex[i] <- tryCatch({
+      cox_fit <- survival::coxph(y_train ~ ., data = as.data.frame(x_train))
+      lp <- predict(cox_fit, newdata = as.data.frame(x_test), type = "lp")
+      survival::concordance(y_test ~ lp)$concordance
+    }, error = function(e) NA)
+
+    # Fit LASSO-Cox
+    lasso_cindex[i] <- tryCatch({
+      fit <- suppressWarnings(glmnet::cv.glmnet(as.matrix(x_train), y_train, family = "cox", alpha = 1))
+      lp_lasso <- predict(fit, newx = as.matrix(x_test), s = "lambda.min", type = "link")
+      survival::concordance(y_test ~ lp_lasso)$concordance
+    }, error = function(e) NA)
+  }
+
+  tibble(
+    method = method,
+    top_n = top_n,
+    cox_mean = mean(cox_cindex, na.rm = TRUE),
+    cox_sd = sd(cox_cindex, na.rm = TRUE),
+    lasso_mean = mean(lasso_cindex, na.rm = TRUE),
+    lasso_sd = sd(lasso_cindex, na.rm = TRUE)
+  )
+}
+
+
+feature_map <- c(raw = "df1", logfc = "df2", rate = "df3")
+methods <- names(feature_map)
+topn_vals <- c(50, 100)
+
+results <- purrr::map_dfr(methods, function(m) {
+  purrr::map_dfr(topn_vals, function(tn) {
+    res <- evaluate_model_cv(eMat, pData_filtered, method = m, top_n = tn)
+    tibble(
+      model = c("Cox", "LASSO"),
+      features = feature_map[[m]],
+      top_genes = tn,
+      cox_mean = c(res$cox_mean, NA),
+      cox_sd = c(res$cox_sd, NA),
+      lasso_mean = c(NA, res$lasso_mean),
+      lasso_sd = c(NA, res$lasso_sd)
+    )
+  })
+})
+
+# knitr::kable(results, caption = "C-index and SD for Each Model Across 12 Configurations")
+
+```
+
+```{r fig-cindex-bar, fig.cap = "C-index comparison across 12 model configurations using 10-fold stratified cross-validation. Each bar represents the average concordance index (C-index) of a model configuration combining model type (Cox or LASSO), feature selection method (df1 = raw expression, df2 = log fold-change, df3 = rate of change), and number of top genes (50 or 100)."}
+
+library(tidyverse)
+
+results_long <- results %>%
+  pivot_longer(
+    cols = c(cox_mean, lasso_mean),
+    names_to = "model_type",
+    values_to = "cindex"
+  ) %>%
+  mutate(
+    model = ifelse(model_type == "cox_mean", "Cox", "LASSO"),
+    method_label = recode(features,
+      "df1" = "method 1",
+      "df2" = "method 2",
+      "df3" = "method 3"
+    ),
+    config_label = paste0(model, " (", method_label, ", top ", top_genes, ")")
+  ) %>%
+  filter(!is.na(cindex))
+
+# Professional color scheme: dark blue and dark orange
+ggplot(results_long, aes(x = reorder(config_label, -cindex), y = cindex, fill = model)) +
+  geom_col(position = position_dodge(width = 0.9), width = 0.8) +
+  coord_cartesian(ylim = c(0.4, 0.8)) +
+  labs(
+    title = "C-index by Model Type and Feature Engineering Method",
+    x = "Model Configuration",
+    y = "C-index",
+    fill = "Model"
+  ) +
+  geom_text(aes(label = sprintf("%.3f", cindex)), 
+            position = position_dodge(width = 0.75),
+            vjust = -0.5, size = 3) +
+  scale_fill_manual(values = c("Cox" = "#1F77B4", "LASSO" = "#D62728")) +
+  theme_minimal(base_size = 13) +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    plot.title = element_text(face = "bold"),
+    legend.position = "top"
+  )
+```
+
+Across the twelve model configurations evaluated via 10-fold stratified cross-validation, we observed substantial variation in performance as measured by Harrell’s concordance index (C-index), a standard metric for assessing the discriminative ability of survival models. Figure 1 presents the C-index scores for each combination of model type (Cox or LASSO), feature selection method (raw expression, log fold change, or rate of change), and feature set size (top 50 or top 100 genes). The two best-performing models were both based on LASSO-Cox regression: one using rate-of-change features with the top 50 genes (Feature Method 3 – Top 50), achieving a C-index of 0.630, and the other using log fold change features with the top 50 genes (Feature Method 2 – Top 50), with a C-index of 0.614. Both outperformed all other configurations, including their corresponding Cox models. While the Cox model using log fold change features (Feature Method 2 – Top 50) achieved a similar C-index of 0.607, it was not pursued further as it offered no practical advantage over the more flexible LASSO version. Based on these results, we selected the two LASSO models with Feature Method 2 and Feature Method 3 (each using the top 50 genes) as the most promising candidates for downstream biological interpretation and clinical deployment.
+
+## **Evaluation Results: Gene Set Enrichment Analysis**
+
+To determine our final candidate model, we evaluated the biological relevance of the selected gene sets through pathway enrichment analysis. Although both Method 2 (log fold change) and Method 3 (rate of change) achieved high C-index values, we sought to understand which feature set aligned more closely with established SLE pathophysiology.
+
+```{r lasso-df3-50}
+# Train the final 2 candidate models on the full training split
+library(glmnet)
+
+# ---- Compute logFC on full data ----
+logfc_list_all <- list()
+for (pid in unique(pData_filtered$patient_id)) {
+  pdata_patient <- pData_filtered %>% filter(patient_id == pid) %>% arrange(ordered_visit)
+  if (nrow(pdata_patient) < 2) next
+  sample_ids <- rownames(pdata_patient)
+  for (j in 2:length(sample_ids)) {
+    cur <- sample_ids[j]; prev <- sample_ids[j - 1]
+    if (cur %in% colnames(eMat) && prev %in% colnames(eMat)) {
+      logfc <- eMat[, cur] - eMat[, prev]
+      logfc_list_all[[cur]] <- logfc
+    }
+  }
+}
+X_df3_50 <- as.data.frame(logfc_list_all)
+rownames(X_df3_50) <- rownames(eMat)
+pData_df3_50 <- pData_filtered[colnames(X_df3_50), ]
+
+# ---- DEA and feature selection ----
+design <- model.matrix(~ factor(pData_df3_50$status))
+fit <- eBayes(lmFit(X_df3_50, design))
+top_genes <- rownames(topTable(fit, coef = 2, number = 50))
+
+# ---- Filter and transpose ----
+X_final_df3_50 <- t(X_df3_50[top_genes, ])
+y_final_df3_50 <- with(pData_df3_50, Surv(cumulative_time, status))
+
+# ---- Fit final model ----
+lasso_df3_50 <- cv.glmnet(
+  x = as.matrix(X_final_df3_50),
+  y = y_final_df3_50,
+  family = "cox",
+  alpha = 1
+)
+
+risk_scores <- predict(lasso_df3_50, newx = as.matrix(X_final_df3_50), s = "lambda.min", type = "link")
+
+# ---- Save model and risk scores ----
+# saveRDS(lasso_df3_50, file = "lasso_df3_50_model.rds")
+# saveRDS(risk_scores, file = "risk_scores_df3_50.rds")
+
+```
+
+```{r lasso-df2-50}
+# ---- Compute logFC across all samples ----
+logfc_list_all <- list()
+for (pid in unique(pData_filtered$patient_id)) {
+  pdata_patient <- pData_filtered %>% filter(patient_id == pid) %>% arrange(ordered_visit)
+  if (nrow(pdata_patient) < 2) next
+  sample_ids <- rownames(pdata_patient)
+  for (j in 2:length(sample_ids)) {
+    cur <- sample_ids[j]; prev <- sample_ids[j - 1]
+    if (cur %in% colnames(eMat) && prev %in% colnames(eMat)) {
+      logfc <- eMat[, cur] - eMat[, prev]
+      logfc_list_all[[cur]] <- logfc
+    }
+  }
+}
+X_df2_50 <- as.data.frame(logfc_list_all)
+rownames(X_df2_50) <- rownames(eMat)
+pData_df2_50 <- pData_filtered[colnames(X_df2_50), ]
+
+# ---- DEA and top gene selection ----
+design_df2 <- model.matrix(~ factor(pData_df2_50$status))
+fit_df2 <- eBayes(lmFit(X_df2_50, design_df2))
+top_genes_df2 <- rownames(topTable(fit_df2, coef = 2, number = 50))
+
+# ---- Subset and prepare data ----
+X_final_df2_50 <- t(X_df2_50[top_genes_df2, ])
+y_final_df2_50 <- with(pData_df2_50, Surv(cumulative_time, status))
+
+# ---- Fit final LASSO-Cox model ----
+lasso_df2_50 <- cv.glmnet(
+  x = as.matrix(X_final_df2_50),
+  y = y_final_df2_50,
+  family = "cox",
+  alpha = 1
+)
+
+```
+
+```{r, fig.width=14, fig.height=6}
+# Gene Set Enrichment Analaysis (on entire df2 and entire df3)
+# BiocManager::install("clusterProfiler")
+# BiocManager::install("org.Hs.eg.db")
+# BiocManager::install("enrichplot")
+
+library(clusterProfiler)
+library(org.Hs.eg.db)
+library(enrichplot)
+# Reuse logFC matrix from df2 setup
+# X_df2_50 already created earlier
+
+# DEA on full df2 logFC matrix
+design_df2 <- model.matrix(~ factor(pData_df2_50$status))
+fit_df2 <- eBayes(lmFit(X_df2_50, design_df2))
+tt_df2 <- topTable(fit_df2, coef = 2, number = Inf, sort.by = "t")
+
+# Map gene symbols to ENTREZ IDs
+gene_map_df2 <- bitr(rownames(tt_df2), fromType = "SYMBOL", toType = "ENTREZID", OrgDb = org.Hs.eg.db)
+tt_df2 <- tt_df2[rownames(tt_df2) %in% gene_map_df2$SYMBOL, ]
+tt_df2$ENTREZID <- gene_map_df2$ENTREZID[match(rownames(tt_df2), gene_map_df2$SYMBOL)]
+
+# Prepare ranked vector
+gene_list_df2_full <- tt_df2$t
+names(gene_list_df2_full) <- tt_df2$ENTREZID
+gene_list_df2_full <- sort(gene_list_df2_full, decreasing = TRUE)
+
+# Run gseGO
+gse_df2_full <- gseGO(
+  geneList = gene_list_df2_full,
+  OrgDb = org.Hs.eg.db,
+  keyType = "ENTREZID",
+  ont = "BP",  # or "ALL" if you want full ontology
+  pAdjustMethod = "BH",
+  pvalueCutoff = 0.05,
+  verbose = FALSE
+)
+
+# Treeplot
+#gse_df2_full <- pairwise_termsim(gse_df2_full)
+#treeplot(gse_df2_full, fontsize = 4) + ggtitle("GSEA (df2: logFC)")
+
+```
+
+```{r, fig.width=14, fig.height=6}
+# Reuse rate matrix from df3 setup
+# X_df3_50 already created earlier
+
+# DEA on full df3 rate matrix
+design_df3 <- model.matrix(~ factor(pData_df3_50$status))
+fit_df3 <- eBayes(lmFit(X_df3_50, design_df3))
+tt_df3 <- topTable(fit_df3, coef = 2, number = Inf, sort.by = "t")
+
+# Map symbols to ENTREZ
+gene_map_df3 <- bitr(rownames(tt_df3), fromType = "SYMBOL", toType = "ENTREZID", OrgDb = org.Hs.eg.db)
+tt_df3 <- tt_df3[rownames(tt_df3) %in% gene_map_df3$SYMBOL, ]
+tt_df3$ENTREZID <- gene_map_df3$ENTREZID[match(rownames(tt_df3), gene_map_df3$SYMBOL)]
+
+# Prepare ranked vector
+gene_list_df3_full <- tt_df3$t
+names(gene_list_df3_full) <- tt_df3$ENTREZID
+gene_list_df3_full <- sort(gene_list_df3_full, decreasing = TRUE)
+
+# Run gseGO
+gse_df3_full <- gseGO(
+  geneList = gene_list_df3_full,
+  OrgDb = org.Hs.eg.db,
+  keyType = "ENTREZID",
+  ont = "BP",
+  pAdjustMethod = "BH",
+  pvalueCutoff = 0.05,
+  verbose = FALSE
+)
+
+# Treeplot
+#gse_df3_full <- pairwise_termsim(gse_df3_full)
+#treeplot(gse_df3_full, fontsize = 4) + ggtitle("GSEA (df3: Rate of Change)")
+
+```
+
+```{r, fig.width=14, fig.height=6}
+# Gene Set Enrichment Analysis (on the 2 final candidates)
+library(clusterProfiler)
+library(org.Hs.eg.db)
+library(enrichplot)
+
+# --- STEP 1: Get non-zero genes for Candidate 1 (LASSO - df3_50) ---
+coef_df3 <- coef(lasso_df3_50, s = "lambda.min")
+selected_genes_df3 <- as.matrix(coef_df3)
+selected_genes_df3 <- selected_genes_df3[selected_genes_df3[,1] != 0, , drop = FALSE]
+selected_genes_df3 <- selected_genes_df3[rownames(selected_genes_df3) != "(Intercept)", , drop = FALSE]
+
+# Rank by coefficient
+gene_coef_df3 <- sort(selected_genes_df3[,1], decreasing = TRUE)
+
+# Map to ENTREZ
+gene_df3_df <- data.frame(SYMBOL = names(gene_coef_df3))
+entrez_df3 <- bitr(gene_df3_df$SYMBOL, fromType = "SYMBOL", toType = "ENTREZID", OrgDb = org.Hs.eg.db)
+
+# Build named vector for gseGO
+gene_list_df3 <- gene_coef_df3[entrez_df3$SYMBOL]
+names(gene_list_df3) <- entrez_df3$ENTREZID
+
+# Run GSEA
+gse_df3 <- gseGO(geneList = gene_list_df3,
+                 OrgDb = org.Hs.eg.db,
+                 keyType = "ENTREZID",
+                 ont = "ALL",
+                 pAdjustMethod = "BH",
+                 pvalueCutoff = 1,
+                 verbose = FALSE)
+
+# Tree plot
+# gse_df3 <- pairwise_termsim(gse_df3)
+# treeplot(gse_df3, fontsize = 4) + ggtitle("LASSO - df3_50 GSEA Treeplot")
+ 
+```
+
+```{r, fig.width=14, fig.height=6}
+# --- STEP 2: Repeat for Candidate 2 (LASSO - df2_50) ---
+coef_df2 <- coef(lasso_df2_50, s = "lambda.min")
+selected_genes_df2 <- as.matrix(coef_df2)
+selected_genes_df2 <- selected_genes_df2[selected_genes_df2[,1] != 0, , drop = FALSE]
+selected_genes_df2 <- selected_genes_df2[rownames(selected_genes_df2) != "(Intercept)", , drop = FALSE]
+
+# Rank by coefficient
+gene_coef_df2 <- sort(selected_genes_df2[,1], decreasing = TRUE)
+
+# Map to ENTREZ
+gene_df2_df <- data.frame(SYMBOL = names(gene_coef_df2))
+entrez_df2 <- bitr(gene_df2_df$SYMBOL, fromType = "SYMBOL", toType = "ENTREZID", OrgDb = org.Hs.eg.db)
+
+# Build named vector
+gene_list_df2 <- gene_coef_df2[entrez_df2$SYMBOL]
+names(gene_list_df2) <- entrez_df2$ENTREZID
+
+# Run GSEA
+gse_df2 <- gseGO(geneList = gene_list_df2,
+                 OrgDb = org.Hs.eg.db,
+                 keyType = "ENTREZID",
+                 ont = "ALL",
+                 pAdjustMethod = "BH",
+                 pvalueCutoff = 1,
+                 verbose = FALSE)
+
+# Tree plot
+# gse_df2 <- pairwise_termsim(gse_df2)
+# treeplot(gse_df2, fontsize = 4) + ggtitle("LASSO - df2_50 GSEA Treeplot")
+```
+
+```{r top50_df3}
+# Reproduce Top 50 Genes from df3 on Full Data
+# Generate df3 (rate of change) matrix from full pData_filtered
+rate_list_full <- list()
+
+for (pid in unique(pData_filtered$patient_id)) {
+  pdata_patient <- pData_filtered %>% filter(patient_id == pid) %>% arrange(ordered_visit)
+  if (nrow(pdata_patient) < 2) next
+  sample_ids <- rownames(pdata_patient)
+  for (j in 2:length(sample_ids)) {
+    cur <- sample_ids[j]; prev <- sample_ids[j - 1]
+    days <- pdata_patient$days_since_last_visit[j]
+    if (is.na(days) || days == 0 || !(cur %in% colnames(eMat)) || !(prev %in% colnames(eMat))) next
+    rate <- (eMat[, cur] - eMat[, prev]) / days
+    rate_list_full[[cur]] <- rate
+  }
+}
+
+eMat_rate <- as.data.frame(rate_list_full)
+rownames(eMat_rate) <- rownames(eMat)
+
+# Match metadata to rate matrix
+sample_ids <- colnames(eMat_rate)
+pData_rate <- pData_filtered[sample_ids, ]
+stopifnot(identical(colnames(eMat_rate), rownames(pData_rate)))
+
+# DEA on full data to get top 50 genes
+design <- model.matrix(~ factor(pData_rate$status))
+colnames(design) <- c("Intercept", "Flare")
+fit <- limma::lmFit(eMat_rate, design)
+fit <- limma::eBayes(fit)
+top50_df3 <- rownames(topTable(fit, coef = 2, number = 50))
+```
+
+```{r fig-gsea-treeplot, fig.cap="Treeplot of enriched pathways from the LASSO Cox model using rate-of-change gene features. Node sizes represent gene counts per term, and color indicates adjusted p-values. Clusters highlight immune activation, inflammatory regulation, and ribonucleoprotein biogenesis."}
+knitr::include_graphics("erichment.jpeg")
+```
+
+This clustered dendrogram displays enriched biological processes among the top 50 genes selected using Method 3 (rate of change) in the final LASSO model. Pathways are grouped into thematic clusters, including negative regulation of inflammation and cell migration, chemotaxis in response to fibroblast signals, innate immune activation, and biotic stimulus detection. The dot size reflects the number of genes in each term, and color indicates adjusted p-value (Benjamini-Hochberg corrected). The clustering highlights functionally coherent modules relevant to lupus flare biology, supporting the biological plausibility of the selected feature set.
+
+Feature set 2 (Method 2) showed enrichment in processes such as cGMP signaling, chemotaxis, and neuronal migration. While some pathways, such as leukocyte activation and inflammatory response, were relevant, others like “forebrain cell migration” and “cGMP biosynthesis” were less directly connected to lupus flares. These terms are more general and may reflect background biological noise or non-specific tissue responses.
+
+In contrast, Feature set 3 (Method 3) demonstrated enrichment in highly SLE-relevant pathways. The most prominent clusters included:
+
+-   **Negative inflammatory migration pathways**, which include regulation of inflammatory response, superoxide metabolism, and cell migration, are highly relevant to SLE because flares often emerge when regulatory mechanisms fail, allowing excessive inflammation and leukocyte infiltration.
+
+-   **Fibroblast-directed chemotaxis**, reflecting immune cell movement in response to fibroblast growth factor, may capture the immune–tissue cross-talk that contributes to flares in organs such as the skin and kidneys.
+
+-   **Myeloid and granulocyte activation**, involving neutrophils and other innate immune cells, is directly linked to the early and active phases of SLE flares, where these cell types are known to drive inflammation.
+
+-   **Detection of bacterial and biotic stimuli**, indicating heightened immune vigilance, mirrors the lupus pathology where self-nucleic acids are mistaken for pathogens and trigger sterile inflammatory responses.
+
+-   **rRNA and ribonucleoprotein complex processing**, while more general, is relevant to SLE as these complexes contain common autoantigens such as anti-RNP and anti-Sm, which are frequently targeted by the immune system in lupus.
+
+Given the clearer immunological relevance and closer mapping to known flare biology, we selected the LASSO model using rate-of-change features (Method 3) and the top 50 genes as our final model.
+
+## **Survival Curve with Subgrouping**
+
+```{r immune-helper}
+# Stage 2 Evaluate Cox Model Performance Stratified by Immune Type
+library(survival)
+library(caret)
+library(dplyr)
+
+valid_ids <- pData_filtered %>%
+  filter(cumulative_time > 0) %>%
+  pull(row_id)
+
+valid_ids <- intersect(valid_ids, colnames(eMat_rate))
+
+top50_df3 <- intersect(top50_df3, rownames(eMat_rate))
+
+X <- eMat_rate[top50_df3, valid_ids, drop = FALSE]
+pdata_cv <- pData_filtered[valid_ids, ]
+
+cv_cindex_subgroup <- function(pdata, X, k = 10, seed = 123) {
+  set.seed(seed)
+  folds <- createFolds(pdata$status, k = k)
+  cindexes <- numeric(k)
+
+  for (i in seq_along(folds)) {
+    test_ids <- rownames(pdata)[folds[[i]]]
+    train_ids <- setdiff(rownames(pdata), test_ids)
+
+    x_train <- t(X[, train_ids, drop = FALSE])
+    x_test  <- t(X[, test_ids, drop = FALSE])
+    y_train <- with(pdata[train_ids, ], Surv(cumulative_time, status))
+    y_test  <- with(pdata[test_ids, ], Surv(cumulative_time, status))
+
+    cindexes[i] <- tryCatch({
+      fit <- coxph(y_train ~ ., data = as.data.frame(x_train))
+      lp <- predict(fit, newdata = as.data.frame(x_test), type = "lp")
+      concordance(y_test ~ lp)$concordance
+    }, error = function(e) NA)
+  }
+
+  mean(cindexes, na.rm = TRUE)
+}
+
+```
+
+```{r immune-models}
+subgroups <- c("All", "Innate-dominant", "Adaptive-dominant", "Mixed")
+
+cv_results <- map_df(subgroups, function(group) {
+  if (group == "All") {
+    ids <- rownames(pdata_cv)
+  } else {
+    ids <- rownames(pdata_cv %>% filter(immune_type == group))
+  }
+
+  pdata_sub <- pdata_cv[ids, ]
+  X_sub <- X[, ids, drop = FALSE]
+
+  tibble(
+    group = group,
+    n = nrow(pdata_sub),
+    cindex_cv = cv_cindex_subgroup(pdata_sub, X_sub)
+  )
+})
+```
+
+```{r}
+# Predict risk scores on full dataset using Cox model
+x_df3 <- t(eMat_rate[top50_df3, valid_ids])
+y_df3 <- with(pData_filtered[valid_ids, ], Surv(cumulative_time, status))
+
+cox_final <- coxph(y_df3 ~ ., data = as.data.frame(x_df3))
+lp_df3 <- predict(cox_final, type = "lp")  # Linear predictor
+
+# Add to data
+df_test2 <- pData_filtered[valid_ids, ]
+df_test2$lp <- as.vector(lp_df3)
+
+df_test2$risk_group <- ifelse(df_test2$lp > median(df_test2$lp), "High Risk", "Low Risk")
+
+```
+
+```{r}
+library(survminer)
+
+surv_obj <- Surv(df_test2$cumulative_time, df_test2$status)
+
+km_fit <- survfit(surv_obj ~ risk_group, data = df_test2)
+
+survplot <- ggsurvplot(
+  km_fit,
+  data = df_test2,
+  pval = TRUE,
+  conf.int = TRUE,
+  risk.table = TRUE,
+  palette = c("red", "blue"),
+  legend.title = "Risk Group",
+  legend.labs = c("High Risk", "Low Risk"),
+  title = "Kaplan-Meier Curve by Predicted Risk Group",
+  xlab = "Time (days)",
+  ylab = "Flare-free Survival Probability"
+)
+
+```
+
+```{r km-immune-risk, fig.cap="Kaplan–Meier curves showing flare-free survival stratified by predicted risk group and immune subtype. Patients in the high-risk and innate-dominant group experienced the lowest survival probability over time.", fig.width = 10, fig.height = 6}
+
+df_test2$risk_immune_group <- paste(df_test2$immune_type, df_test2$risk_group, sep = " - ")
+df_test2$risk_immune_group <- factor(df_test2$risk_immune_group)
+
+df_test2$risk_immune_group <- recode(df_test2$risk_immune_group,
+  "Innate-dominant - High Risk" = "Innate-High",
+  "Innate-dominant - Low Risk" = "Innate-Low",
+  "Adaptive-dominant - High Risk" = "Adaptive-High",
+  "Adaptive-dominant - Low Risk" = "Adaptive-Low",
+  "Mixed - High Risk" = "Mixed-High",
+  "Mixed - Low Risk" = "Mixed-Low"
+)
+
+km_fit_combo <- survfit(surv_obj ~ risk_immune_group, data = df_test2)
+
+ggsurvplot(
+  km_fit_combo,
+  data = df_test2,
+  pval = TRUE,
+  risk.table = FALSE,
+  palette = "Dark2",
+  legend = "bottom",
+  font.legend = 12,
+  legend.title = "Immune-Risk Group",
+  legend.labs = levels(df_test2$risk_immune_group),
+  title = "Kaplan-Meier Curves by Risk Group and Immune Subtype",
+  xlab = "Time (days)", ylab = "Flare-free Survival Probability"
+)
+
+```
+
+The Kaplan–Meier survival curves stratified by both predicted risk group and immune subtype reveal several key trends. As expected, patients in the low-risk category showed high flare-free survival probabilities regardless of immune subtype, suggesting the model effectively identified stable patients. However, within the high-risk group, we observed meaningful divergence based on immune classification. In particular, patients classified as adaptive-dominant exhibited flare patterns that more closely resembled those of low-risk patients over time. This suggests that even within the same predicted risk stratum, immune subtype may further stratify outcomes, highlighting a potential interaction effect. These findings support the value of incorporating immune phenotyping alongside model-based risk scores to better refine clinical decision-making.
+
+## **Modelling with Subgrouping**
+
+```{r fig-immune-cv, fig.cap = "C-index performance of the Cox model across immune subtypes. Each bar represents the mean C-index from 10-fold cross-validation using the top 50 log-fold change genes (df3). Stratifying the model evaluation by immune type shows variation in predictive performance across different patient groups."}
+library(ggplot2)
+
+# Assume cv_results is already computed
+
+ggplot(cv_results, aes(x = reorder(group, cindex_cv), y = cindex_cv, fill = group)) +
+  geom_col(width = 0.6, show.legend = FALSE) +
+  geom_text(aes(label = sprintf("%.3f", cindex_cv)), 
+            hjust = -0.1, size = 4.5, color = "black") +
+  coord_flip() +
+  labs(
+    title = "Model Performance by Immune Subtype",
+    subtitle = "Mean C-index from 10-fold CV using top 50 logFC genes",
+    x = "Immune Subtype",
+    y = "C-index"
+  ) +
+  scale_fill_brewer(palette = "Set2") +
+  theme_minimal(base_size = 14) +
+  theme(
+    plot.title = element_text(face = "bold"),
+    plot.subtitle = element_text(face = "italic"),
+    axis.title.y = element_blank(),
+    axis.text.y = element_text(face = "bold")
+  ) +
+  coord_cartesian(ylim = c(0.3, 0.65))
+
+```
+
+Training subgroup-specific models did not improve predictive performance. When the final selected model (LASSO with rate-of-change features and top 50 genes) was retrained separately within each immune subtype, the concordance index decreased compared to the model trained on the full cohort. Specifically, the C-index dropped to 0.555 in the innate-dominant group, 0.415 in the adaptive-dominant group, and 0.424 in the mixed group, compared to 0.630 in the original full-cohort model. This decline may be due to reduced sample sizes within each subgroup, limiting the model’s ability to generalize. As such, we concluded that the full-cohort model without subgrouping provides the best trade-off between predictive accuracy and stability, and was therefore selected as the final model.
+
+# Discussion
+
+Our final model shows promising performance but also highlights several limitations that are important to consider from both data science and biomedical perspectives.
+
+From a modeling perspective, predictive accuracy remained modest. The best-performing configuration, a LASSO Cox model using rate-of-change features and the top 50 genes, achieved a C-index of 0.63. While this is better than random guessing, it falls short of the level needed for confident clinical decisions. One reason for this may be the limited availability of samples with sufficient longitudinal information. Although the full dataset includes nearly 1000 samples, only a subset could be used to compute log fold changes or rate of change due to the requirement for consecutive visits. This restricted the effective sample size and may have limited the model’s ability to generalize. The problem became more pronounced when training models within immune subgroups, where splitting the data reduced the number of usable samples even further.
+
+Survival modeling presented additional challenges. Flare events were irregular and not uniformly distributed across time. Many patients had inconsistent follow-up intervals or were censored early, which introduced noise into the model training process. Additionally, although the model output continuous risk scores, most predictions were tightly clustered around the median. As a result, the percentile distribution became compressed, and it became more difficult to clearly separate high- and low-risk patients near the middle of the distribution. This reduced the usefulness of percentile-based ranking in practice.
+
+From the biomedical perspective, the use of a pediatric cohort may limit generalizability. Children with SLE can present with different disease dynamics compared to adults. It remains unclear whether the transcriptomic signatures identified in this study would apply in an older population. Furthermore, although clinical metadata included treatment details, we did not incorporate medication status or dosage into the models. Since treatment can significantly influence flare risk, this omission may have introduced confounding. Another biological limitation is the use of whole blood for gene expression profiling. Whole blood captures a mixture of many immune cell types, which can mask signals from rare but relevant subsets such as plasmablasts or activated T cells.
+
+Despite these limitations, the project demonstrated a strong integration of data science and biomedical understanding. From a translational perspective, we bridged predictive modeling with practical clinical use by developing a Shiny application. This app allows clinicians to upload patient data, receive individualized flare risk scores, and access interpretive tools such as gene influence visualizations and immune stratification. We also complemented model evaluation with pathway enrichment analysis, allowing us to choose the most biologically relevant model rather than relying on metrics alone. This step added important interpretability, especially in the context of a complex disease like SLE.
+
+Several directions for future work emerge from these findings. One avenue would be to incorporate additional data types such as treatment history, immune panel results, or cell composition estimates derived from deconvolution algorithms. Prospective validation in an independent adult cohort is also necessary to assess real-world performance and generalizability. Future models could explore time-updating risk prediction methods using longitudinal frameworks like landmarking or joint modeling. On the subgrouping side, more refined patient stratification could be attempted using molecular clustering techniques or known SLE endotypes rather than simple neutrophil and lymphocyte splits.
+
+# Conclusion
+
+In this study, we developed and validated a machine learning model to predict flare risk in pediatric SLE patients using blood transcriptomic data. After benchmarking twelve candidate models, we selected the LASSO Cox model using rate-of-change features and the top 50 genes based on its superior C-index and biological relevance. While subgroup-specific models did not yield better performance, we demonstrated that immune classification may enhance clinical interpretability. We translated our model into a Shiny application that supports clinician decision-making through individualized risk assessment and gene-level interpretation. This work highlights the potential of dynamic transcriptomic modeling in autoimmune disease and provides a foundation for further refinement through more detailed data and external validation.
+
+# Contribution Statement
+
+We initially worked on the GSE88884 dataset, where Xinyu led data preprocessing, Jerry performed feature selection, and Ruinan and Wilson conducted EDA and modeling. Despite multiple modeling attempts, the results were not satisfactory, so we shifted focus to GSE65391. Jerry handled preprocessing, feature engineering, and biological interpretation. Xinyu trained and evaluated LASSO Cox models, conducted subgroup survival analysis, and deployed the final Shiny app, which she also demoed live. Jerry and Athena co-presented the findings, with Athena contributing to the background, aims, and slides. Wilson supported data description and managed slides during the live presentation. Ruinan worked on model development, evaluation strategies, and the results section. Daiyue contributed to writing the background, problem description, and data overview. All team members collaborated on figures, feature selection comparison, and jointly finalized the report and presentation.
+
+# Reference
