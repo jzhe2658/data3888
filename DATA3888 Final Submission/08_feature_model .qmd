@@ -1,0 +1,512 @@
+---
+title: "08_feature_model"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+format:
+  html:
+    code-tools: true
+    code-fold: true
+    fig_caption: yes
+    number_sections: yes
+    embed-resources: true
+    theme: flatly
+    css: 
+      - https://use.fontawesome.com/releases/v5.0.6/css/all.css
+    toc: true
+    toc_depth: 4
+    toc_float: true
+execute:
+  echo: true
+  tidy: true
+  warning: false
+  message: false
+---
+
+# Stage 1: Core Model Benchmarking
+
+Loop over:
+
+-   Feature set: df_train1, df_train2, df_train3
+
+-   Top genes: 50 and 100
+
+-   Models: Cox(`coxph`) and LASSO-Cox (`cv.glmnet`)
+
+-   Stratified CV
+
+## 1. Data pre-processing
+
+```{r pre-processing}
+library(tidyverse)
+
+# Load data
+eMat <- readRDS("GSE65391_preprocessed/eMat_with_symbols.rds")
+fData <- readRDS("GSE65391_preprocessed/fData.rds")
+pData <- readRDS("GSE65391_preprocessed/pData_final.rds")
+
+# Convert and clean variables
+pData <- pData %>%
+  mutate(
+    sledai = as.numeric(sledai),
+    visit = as.numeric(visit),
+    cumulative_time = as.numeric(cumulative_time),
+    days_since_last_visit = as.numeric(days_since_last_visit),
+    neutrophil_count = as.numeric(neutrophil_count),
+    lymphocyte_count = as.numeric(lymphocyte_count)
+  ) %>%
+  arrange(patient_id, visit) %>%
+  group_by(patient_id) %>%
+  mutate(ordered_visit = row_number(),
+         sledai_next = lead(sledai),
+         sledai_change = sledai_next - sledai) %>%
+  ungroup() %>%
+  filter(group_type != "HEALTHY")
+
+pData$flare_next <- ifelse(pData$sledai_change >= 3, 1, 0)
+
+# Filter for modeling
+pData_filtered <- pData %>% filter(!is.na(sledai_change))
+# Setup survival fields
+pData_filtered <- pData_filtered %>%
+  transmute(
+    row_id = paste("SLE", patient_id, sprintf("V%02d", visit), sep = "_"),
+    patient_id, visit, ordered_visit,
+    sledai, sledai_next, sledai_change, flare_next,
+    days_since_last_visit,
+    start_time = lag(cumsum(days_since_last_visit), default = 0),
+    stop_time = cumsum(days_since_last_visit),
+    cumulative_time, status = flare_next,
+    neutrophil = neutrophil_count,
+    lymphocyte = lymphocyte_count
+  )
+pData_filtered <- as.data.frame(pData_filtered)
+rownames(pData_filtered) <- pData_filtered$row_id
+```
+
+### Variable Descriptions
+
+-   **row_id**: Unique sample identifier (e.g., SLE_PatientID_V01)
+-   **patient_id**: ID of the patient
+-   **visit**: Numerical visit index
+-   **ordered_visit**: Sequential number of the visit per patient
+-   **sledai**: SLE Disease Activity Index score at the visit
+-   **sledai_next**: SLEDAI score at the next visit
+-   **sledai_change**: Change in SLEDAI from current to next visit
+-   **flare_next**: Binary indicator (1 if next SLEDAI increase \>= 3)
+-   **start_time**: Cumulative time since start (excluding current visit)
+-   **stop_time**: Cumulative time including current visit
+-   **cumulative_time**: Total days since baseline
+-   **status**: Event indicator (same as `flare_next`)
+-   **neutrophil**: Neutrophil count
+-   **lymphocyte**: Lymphocyte count
+
+## 2. Immune Sub-type Classification
+
+```{r immune_sub-type}
+neutrophil_median <- median(pData_filtered$neutrophil, na.rm = TRUE)
+lymphocyte_median <- median(pData_filtered$lymphocyte, na.rm = TRUE)
+
+pData_filtered$immune_type <- case_when(
+  pData_filtered$neutrophil > neutrophil_median & pData_filtered$lymphocyte <= lymphocyte_median ~ "Innate-dominant",
+  pData_filtered$lymphocyte > lymphocyte_median & pData_filtered$neutrophil <= neutrophil_median ~ "Adaptive-dominant",
+  TRUE ~ "Mixed"
+)
+pData_filtered$immune_type <- factor(pData_filtered$immune_type)
+```
+
+## 3. Model Comparison - 10-fold CV
+
+```{r helper}
+evaluate_model_cv <- function(eMat, pData, method = c("raw", "logfc", "rate"), top_n = 100, k = 10) {
+  method <- match.arg(method)
+  folds <- caret::createFolds(pData$status, k = k)
+  cox_cindex <- numeric(k)
+  lasso_cindex <- numeric(k)
+
+  for (i in seq_along(folds)) {
+    test_ids <- rownames(pData)[folds[[i]]]
+    train_ids <- setdiff(rownames(pData), test_ids)
+
+    pdata_train <- pData[train_ids, ]
+    pdata_test <- pData[test_ids, ]
+
+    if (method == "raw") {
+      X_train <- eMat[, train_ids, drop = FALSE]
+      X_test <- eMat[, test_ids, drop = FALSE]
+
+    } else if (method == "logfc") {
+      logfc_list <- list()
+
+      for (pid in unique(pdata_train$patient_id)) {
+        pdata_patient <- pdata_train %>% filter(patient_id == pid) %>% arrange(ordered_visit)
+        if (nrow(pdata_patient) < 2) next
+        sample_ids <- rownames(pdata_patient)
+        for (j in 2:length(sample_ids)) {
+          cur <- sample_ids[j]; prev <- sample_ids[j - 1]
+          if (cur %in% colnames(eMat) && prev %in% colnames(eMat)) {
+            logfc <- eMat[, cur] - eMat[, prev]
+            logfc_list[[cur]] <- logfc
+          }
+        }
+      }
+
+      if (length(logfc_list) == 0) {
+        warning(paste("Skipping fold", i, "- no valid logFC features"))
+        next
+      }
+
+      X_train <- as.data.frame(logfc_list)
+      rownames(X_train) <- rownames(eMat)
+      train_ids <- colnames(X_train)
+      pdata_train <- pdata_train[train_ids, ]
+
+      # Test set logfc
+      logfc_list_test <- list()
+      for (pid in unique(pdata_test$patient_id)) {
+        pdata_patient <- pdata_test %>% filter(patient_id == pid) %>% arrange(ordered_visit)
+        if (nrow(pdata_patient) < 2) next
+        sample_ids <- rownames(pdata_patient)
+        for (j in 2:length(sample_ids)) {
+          cur <- sample_ids[j]; prev <- sample_ids[j - 1]
+          if (cur %in% colnames(eMat) && prev %in% colnames(eMat)) {
+            logfc <- eMat[, cur] - eMat[, prev]
+            logfc_list_test[[cur]] <- logfc
+          }
+        }
+      }
+
+      if (length(logfc_list_test) == 0) {
+        warning(paste("Skipping fold", i, "- no valid logFC test features"))
+        next
+      }
+
+      X_test <- as.data.frame(logfc_list_test)
+      rownames(X_test) <- rownames(eMat)
+      test_ids <- colnames(X_test)
+      pdata_test <- pdata_test[test_ids, ]
+
+    } else if (method == "rate") {
+      rate_list <- list()
+
+      for (pid in unique(pdata_train$patient_id)) {
+        pdata_patient <- pdata_train %>% filter(patient_id == pid) %>% arrange(ordered_visit)
+        if (nrow(pdata_patient) < 2) next
+        sample_ids <- rownames(pdata_patient)
+        for (j in 2:length(sample_ids)) {
+          cur <- sample_ids[j]; prev <- sample_ids[j - 1]
+          days <- pdata_patient$days_since_last_visit[j]
+          if (is.na(days) || days == 0 || cur %in% colnames(eMat) == FALSE || prev %in% colnames(eMat) == FALSE) next
+          rate <- (eMat[, cur] - eMat[, prev]) / days
+          rate_list[[cur]] <- rate
+        }
+      }
+
+      if (length(rate_list) == 0) {
+        warning(paste("Skipping fold", i, "- no valid rate features"))
+        next
+      }
+
+      X_train <- as.data.frame(rate_list)
+      rownames(X_train) <- rownames(eMat)
+      train_ids <- colnames(X_train)
+      pdata_train <- pdata_train[train_ids, ]
+
+      # Test set
+      rate_list_test <- list()
+      for (pid in unique(pdata_test$patient_id)) {
+        pdata_patient <- pdata_test %>% filter(patient_id == pid) %>% arrange(ordered_visit)
+        if (nrow(pdata_patient) < 2) next
+        sample_ids <- rownames(pdata_patient)
+        for (j in 2:length(sample_ids)) {
+          cur <- sample_ids[j]; prev <- sample_ids[j - 1]
+          days <- pdata_patient$days_since_last_visit[j]
+          if (is.na(days) || days == 0 || cur %in% colnames(eMat) == FALSE || prev %in% colnames(eMat) == FALSE) next
+          rate <- (eMat[, cur] - eMat[, prev]) / days
+          rate_list_test[[cur]] <- rate
+        }
+      }
+
+      if (length(rate_list_test) == 0) {
+        warning(paste("Skipping fold", i, "- no valid rate test features"))
+        next
+      }
+
+      X_test <- as.data.frame(rate_list_test)
+      rownames(X_test) <- rownames(eMat)
+      test_ids <- colnames(X_test)
+      pdata_test <- pdata_test[test_ids, ]
+    }
+
+    # Design matrix and DEA
+    design <- model.matrix(~ factor(pdata_train$status))
+    colnames(design) <- c("Intercept", "Flare")
+    fit <- limma::lmFit(X_train, design)
+    fit <- limma::eBayes(fit)
+
+    top_genes_all <- rownames(topTable(fit, coef = 2, number = top_n * 2))
+    top_genes <- intersect(top_genes_all, rownames(X_train))
+    if (length(top_genes) < top_n) {
+      warning(paste("Only", length(top_genes), "valid genes in fold", i, "- skipping"))
+      next
+    }
+    top_genes <- head(top_genes, top_n)
+
+    x_train <- t(X_train[top_genes, , drop = FALSE])
+    x_test  <- t(X_test[top_genes, , drop = FALSE])
+
+    keep_train <- pdata_train$cumulative_time > 0
+    keep_test <- pdata_test$cumulative_time > 0
+
+    x_train <- x_train[keep_train, , drop = FALSE]
+    x_test  <- x_test[keep_test, , drop = FALSE]
+    y_train <- with(pdata_train[keep_train, ], Surv(cumulative_time, status))
+    y_test <- with(pdata_test[keep_test, ], Surv(cumulative_time, status))
+
+    # Fit Cox model
+    cox_cindex[i] <- tryCatch({
+      cox_fit <- survival::coxph(y_train ~ ., data = as.data.frame(x_train))
+      lp <- predict(cox_fit, newdata = as.data.frame(x_test), type = "lp")
+      survival::concordance(y_test ~ lp)$concordance
+    }, error = function(e) NA)
+
+    # Fit LASSO-Cox
+    lasso_cindex[i] <- tryCatch({
+      fit <- suppressWarnings(glmnet::cv.glmnet(as.matrix(x_train), y_train, family = "cox", alpha = 1))
+      lp_lasso <- predict(fit, newx = as.matrix(x_test), s = "lambda.min", type = "link")
+      survival::concordance(y_test ~ lp_lasso)$concordance
+    }, error = function(e) NA)
+  }
+
+  tibble(
+    method = method,
+    top_n = top_n,
+    cox_mean = mean(cox_cindex, na.rm = TRUE),
+    cox_sd = sd(cox_cindex, na.rm = TRUE),
+    lasso_mean = mean(lasso_cindex, na.rm = TRUE),
+    lasso_sd = sd(lasso_cindex, na.rm = TRUE)
+  )
+}
+
+```
+
+```{r model-comparison}
+library(dplyr)
+library(purrr)
+library(knitr)
+
+feature_map <- c(raw = "df1", logfc = "df2", rate = "df3")
+methods <- names(feature_map)
+topn_vals <- c(50, 100)
+
+results <- purrr::map_dfr(methods, function(m) {
+  purrr::map_dfr(topn_vals, function(tn) {
+    res <- evaluate_model_cv(eMat, pData_filtered, method = m, top_n = tn)
+    tibble(
+      model = c("Cox", "LASSO"),
+      features = feature_map[[m]],
+      top_genes = tn,
+      cox_mean = c(res$cox_mean, NA),
+      cox_sd = c(res$cox_sd, NA),
+      lasso_mean = c(NA, res$lasso_mean),
+      lasso_sd = c(NA, res$lasso_sd)
+    )
+  })
+})
+
+knitr::kable(results, caption = "C-index and SD for Each Model Across 12 Configurations")
+
+```
+
+```{r bar-chart}
+library(tidyverse)
+
+results_long <- results %>%
+  pivot_longer(
+    cols = c(cox_mean, lasso_mean),
+    names_to = "model_type",
+    values_to = "cindex"
+  ) %>%
+  mutate(
+    model = ifelse(model_type == "cox_mean", "Cox", "LASSO"),
+    config = paste(model, features, top_genes, sep = "_")
+  ) %>%
+  filter(!is.na(cindex)) 
+
+# Bar plot
+ggplot(results_long, aes(x = reorder(config, -cindex), y = cindex, fill = model)) +
+  geom_col(position = position_dodge(width = 0.9), width = 0.8) +
+  coord_cartesian(ylim = c(0.4, 0.65)) +
+  labs(
+    title = "C-index Comparison Across 12 Model Configurations (10-Fold CV)",
+    x = "Model Configuration",
+    y = "C-index",
+    fill = "Model"
+  ) +
+  geom_text(aes(label = sprintf("%.3f", cindex)), 
+            position = position_dodge(width = 0.9),
+            vjust = -0.5, size = 3) +
+  theme_minimal(base_size = 13) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+```
+
+###  Reproduce Top 50 Genes from `df3` on Full Data
+
+```{r top50_df3}
+# Generate df3 (rate of change) matrix from full pData_filtered
+rate_list_full <- list()
+
+for (pid in unique(pData_filtered$patient_id)) {
+  pdata_patient <- pData_filtered %>% filter(patient_id == pid) %>% arrange(ordered_visit)
+  if (nrow(pdata_patient) < 2) next
+  sample_ids <- rownames(pdata_patient)
+  for (j in 2:length(sample_ids)) {
+    cur <- sample_ids[j]; prev <- sample_ids[j - 1]
+    days <- pdata_patient$days_since_last_visit[j]
+    if (is.na(days) || days == 0 || !(cur %in% colnames(eMat)) || !(prev %in% colnames(eMat))) next
+    rate <- (eMat[, cur] - eMat[, prev]) / days
+    rate_list_full[[cur]] <- rate
+  }
+}
+
+eMat_rate <- as.data.frame(rate_list_full)
+rownames(eMat_rate) <- rownames(eMat)
+
+# Match metadata to rate matrix
+sample_ids <- colnames(eMat_rate)
+pData_rate <- pData_filtered[sample_ids, ]
+stopifnot(identical(colnames(eMat_rate), rownames(pData_rate)))
+
+# DEA on full data to get top 50 genes
+design <- model.matrix(~ factor(pData_rate$status))
+colnames(design) <- c("Intercept", "Flare")
+fit <- limma::lmFit(eMat_rate, design)
+fit <- limma::eBayes(fit)
+top50_df3 <- rownames(topTable(fit, coef = 2, number = 50))
+```
+
+# Stage 2 Evaluate Cox Model Performance Stratified by Immune Type
+
+```{r immune-helper}
+library(survival)
+library(caret)
+library(dplyr)
+
+valid_ids <- pData_filtered %>%
+  filter(cumulative_time > 0) %>%
+  pull(row_id)
+
+valid_ids <- intersect(valid_ids, colnames(eMat_rate))
+
+top50_df3 <- intersect(top50_df3, rownames(eMat_rate))
+
+X <- eMat_rate[top50_df3, valid_ids, drop = FALSE]
+pdata_cv <- pData_filtered[valid_ids, ]
+
+cv_cindex_subgroup <- function(pdata, X, k = 10, seed = 123) {
+  set.seed(seed)
+  folds <- createFolds(pdata$status, k = k)
+  cindexes <- numeric(k)
+
+  for (i in seq_along(folds)) {
+    test_ids <- rownames(pdata)[folds[[i]]]
+    train_ids <- setdiff(rownames(pdata), test_ids)
+
+    x_train <- t(X[, train_ids, drop = FALSE])
+    x_test  <- t(X[, test_ids, drop = FALSE])
+    y_train <- with(pdata[train_ids, ], Surv(cumulative_time, status))
+    y_test  <- with(pdata[test_ids, ], Surv(cumulative_time, status))
+
+    cindexes[i] <- tryCatch({
+      fit <- coxph(y_train ~ ., data = as.data.frame(x_train))
+      lp <- predict(fit, newdata = as.data.frame(x_test), type = "lp")
+      concordance(y_test ~ lp)$concordance
+    }, error = function(e) NA)
+  }
+
+  mean(cindexes, na.rm = TRUE)
+}
+
+```
+
+```{r immune-models}
+subgroups <- c("All", "Innate-dominant", "Adaptive-dominant", "Mixed")
+
+cv_results <- map_df(subgroups, function(group) {
+  if (group == "All") {
+    ids <- rownames(pdata_cv)
+  } else {
+    ids <- rownames(pdata_cv %>% filter(immune_type == group))
+  }
+
+  pdata_sub <- pdata_cv[ids, ]
+  X_sub <- X[, ids, drop = FALSE]
+
+  tibble(
+    group = group,
+    n = nrow(pdata_sub),
+    cindex_cv = cv_cindex_subgroup(pdata_sub, X_sub)
+  )
+})
+
+print(cv_results)
+
+```
+
+## Survival Curves
+
+```{r}
+# Predict risk scores on full dataset using Cox model
+x_df3 <- t(eMat_rate[top50_df3, valid_ids])
+y_df3 <- with(pData_filtered[valid_ids, ], Surv(cumulative_time, status))
+
+cox_final <- coxph(y_df3 ~ ., data = as.data.frame(x_df3))
+lp_df3 <- predict(cox_final, type = "lp")  # Linear predictor
+
+# Add to data
+df_test2 <- pData_filtered[valid_ids, ]
+df_test2$lp <- as.vector(lp_df3)
+
+df_test2$risk_group <- ifelse(df_test2$lp > median(df_test2$lp), "High Risk", "Low Risk")
+
+```
+
+```{r}
+library(survminer)
+
+surv_obj <- Surv(df_test2$cumulative_time, df_test2$status)
+
+km_fit <- survfit(surv_obj ~ risk_group, data = df_test2)
+
+ggsurvplot(
+  km_fit,
+  data = df_test2,
+  pval = TRUE,
+  conf.int = TRUE,
+  risk.table = TRUE,
+  palette = c("red", "blue"),
+  legend.title = "Risk Group",
+  legend.labs = c("High Risk", "Low Risk"),
+  title = "Kaplan-Meier Curve by Predicted Risk Group",
+  xlab = "Time (days)",
+  ylab = "Flare-free Survival Probability"
+)
+
+```
+
+```{r}
+df_test2$risk_immune_group <- paste(df_test2$immune_type, df_test2$risk_group, sep = " - ")
+df_test2$risk_immune_group <- factor(df_test2$risk_immune_group)
+
+km_fit_combo <- survfit(surv_obj ~ risk_immune_group, data = df_test2)
+
+ggsurvplot(
+  km_fit_combo,
+  data = df_test2,
+  pval = TRUE,
+  risk.table = TRUE,
+  palette = "Dark2",
+  title = "Kaplan-Meier Curves by Risk Group and Immune Subtype",
+  xlab = "Time (days)", ylab = "Flare-free Survival Probability"
+)
+
+```
